@@ -158,7 +158,8 @@ def drawer_handle_matches(detections: list[Detection]) -> list[Match]:
             score = ioa_weight * ioa + drawer_conf
             return score, ioa
 
-    drawer_detections = [det for det in detections if det.name == "cabinet door"]
+    # drawer_detections = [det for det in detections if det.name == "cabinet door"]
+    drawer_detections = [det for det in detections if "door" in det.name]
     handle_detections = [det for det in detections if det.name == "handle"]
 
     matching_scores = np.zeros((len(drawer_detections), len(handle_detections), 2))

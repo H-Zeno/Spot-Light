@@ -60,6 +60,7 @@ CAMERA_ANGLE = 55
 SPLIT_THRESH = 1.0
 MIN_PAIRWISE_DRAWER_DISTANCE = 0.1
 ITEMS = ["deer toy", "small clock", "headphones", "watch", "highlighter", "red bottle"]
+# ITEMS = ["watch"]
 
 
 def determine_handle_center(
@@ -285,7 +286,7 @@ def search_drawer(
             max_target_distance=2.25,
             min_obstacle_distance=0.75,
             n=4,
-            vis_block=False,
+            vis_block=True,
         )
         gaze_and_body = [(cabinet_pose, body_pose) for body_pose in body_poses]
         gaze_and_bodies.extend(gaze_and_body)
@@ -383,7 +384,7 @@ def search_drawer(
         print(f"{camera_pose=}")
         move_arm(camera_pose, frame_name=frame_name, body_assist=True)
         imgs = get_rgb_pictures([GRIPPER_IMAGE_COLOR])
-        detections = detect_objects(imgs[0][0], ITEMS, vis_block=False)
+        detections = detect_objects(imgs[0][0], ITEMS, vis_block=True)
         print(f"{detections=}")
         pairs = [(refined_pose, det) for det in detections]
         detection_drawer_pairs.extend(pairs)
@@ -449,7 +450,7 @@ class _DynamicDrawers(ControlFunction):
         indices = (6,)
         config = recursive_config.Config()
 
-        frame_name = localize_from_images(config)
+        frame_name = localize_from_images(config, vis_block=False)
         start_pose = frame_transformer.get_current_body_position_in_frame(
             frame_name, in_common_pose=True
         )
@@ -458,7 +459,7 @@ class _DynamicDrawers(ControlFunction):
         draw_det_pairs = []
         for idx in indices:
             cabinet_pcd, env_pcd = get_mask_points(
-                "cabinet, shelf", config, idx=idx, vis_block=False
+                "cabinet, shelf", config, idx=idx, vis_block=True
             )
             cabinet_centers = split_and_calculate_centers(
                 np.asarray(cabinet_pcd.points), threshold=SPLIT_THRESH

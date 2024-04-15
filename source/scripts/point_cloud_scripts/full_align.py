@@ -284,7 +284,7 @@ def main() -> None:
     # o3d.visualization.draw_geometries([scan_vis])
 
     draw_point_clouds(scan_fiducial, autowalk_cloud)
-    fiducial_tform_icp = icp(scan_fiducial, autowalk_cloud, threshold=0.15)
+    fiducial_tform_icp = icp(scan_fiducial, autowalk_cloud, threshold=0.15)#15
     icp_tform_fiducial = np.linalg.inv(fiducial_tform_icp)
     scan_icp = copy.deepcopy(scan_fiducial).transform(icp_tform_fiducial)
     draw_point_clouds(scan_icp, autowalk_cloud)

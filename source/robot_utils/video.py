@@ -402,7 +402,7 @@ def build_surrounding_point_cloud() -> PointCloud:
     :return: returns point cloud of environment.
     """
     set_gripper(True)
-    dimage_tuples = get_d_pictures(ALL_DEPTH_SOURCES, auto_rotate=False)
+    dimage_tuples = get_d_pictures(ALL_DEPTH_SOURCES, auto_rotate=False, vis_block=False)
     pcd_body = point_cloud_from_camera_captures(
         dimage_tuples, frame_relative_to=BODY_FRAME_NAME
     )
@@ -517,7 +517,7 @@ class NoFiducialDetectedError(Exception):
     pass
 
 
-def localize_from_images(config: Config, vis_block: bool = False) -> str:
+def localize_from_images(config: Config, vis_block: bool = True) -> str:
     """
     Localize the robot from camera images and depth scans of the surrounding environment.
     :param config:
@@ -583,6 +583,9 @@ def localize_from_images(config: Config, vis_block: bool = False) -> str:
     ending = config["pre_scanned_graphs"]["high_res"]
     scan_path = os.path.join(base_path, ending, "scene.ply")
     pcd_ground = o3d.io.read_point_cloud(scan_path)
+
+    # #test
+    # vis_block = True
 
     if vis_block:
         show_two_geometries_colored(pcd_fiducial, pcd_ground)

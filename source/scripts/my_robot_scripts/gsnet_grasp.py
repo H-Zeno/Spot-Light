@@ -95,7 +95,7 @@ class _BetterGrasp(ControlFunction):
         *args,
         **kwargs,
     ) -> str:
-        ITEM = "poro plushy"
+        ITEM = "green watering can"
         RADIUS = 0.75
         RESOLUTION = 16
         LAM_BODY = 0.01
@@ -111,7 +111,7 @@ class _BetterGrasp(ControlFunction):
 
         loc_timer_start = time.time_ns()
         logger.log("Starting 3D Instance Segmentation and Object Localization")
-        item_cloud, environment_cloud = get_mask_points(ITEM, config, vis_block=False)
+        item_cloud, environment_cloud = get_mask_points(ITEM, config, vis_block=True)
 
         lim_env_cloud = get_radius_env_cloud(item_cloud, environment_cloud, RADIUS)
         logger.log("Ending 3D Instance Segmentation and Object Localization")
@@ -220,6 +220,15 @@ class _BetterGrasp(ControlFunction):
         arm_move_end = time.time_ns()
         # move_arm_distanced(grasp_pose_new, 0.03, frame_name)
         # time.sleep(1)
+
+        carry_arm(False)
+
+        body_after = Pose3D((2, -1, 0))
+        body_after2 = body_after.copy()
+        body_after.rot_matrix = body_pose_distanced.rot_matrix.copy()
+        move_body(body_after.to_dimension(2), frame_name)
+        move_body(body_after2.to_dimension(2), frame_name)
+
 
         time.sleep(5)
         set_gripper(True)
