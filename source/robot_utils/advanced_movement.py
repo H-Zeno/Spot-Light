@@ -4,10 +4,11 @@ import copy
 import time
 
 import numpy as np
+from typing import List
 
 import open3d as o3d
 from bosdyn.client.frame_helpers import BODY_FRAME_NAME, ODOM_FRAME_NAME
-from robot_utils.basic_movements import move_arm_distanced, move_body, set_gripper
+from robot_utils.basic_movements import move_arm_distanced, move_body, set_gripper, move_arm
 from robot_utils.frame_transformer import (
     GRAPH_SEED_FRAME_NAME,
     VISUAL_SEED_FRAME_NAME,
@@ -520,3 +521,85 @@ def dynamically_refined_grasp_find_new_grasp(
     return positional_grab(
         new_pose, distance_start, distance_end, frame_name=frame_name
     )
+
+def pull_swing_trajectory(
+    pose: Pose3D,
+    start_distance: float,
+    mid_distance: float,
+    trajectory: List,
+    frame_name: str,
+    stiffness_diag_in: list[int] | None = None,
+    damping_diag_in: list[float] | None = None,
+    stiffness_diag_out: list[int] | None = None,
+    damping_diag_out: list[float] | None = None,
+    forces: list[float] | None = None,
+    release_after: bool = True,
+    follow_arm: bool = False,
+    timeout: float = 15.0,
+) -> (Pose3D, Pose3D):
+    """
+    Executes a pulling motion along a swing trajectory
+    :param pose: pose of knob in 3D space
+    :param start_distance: how far from the knob to start grab
+    :param mid_distance: how far to go before grabbing
+    :param frame_name:
+    :param release_after: release the knob after pulling motion
+    :param sleep: whether to sleep in between motions for safety
+    """
+    assert len(stiffness_diag_in) == 6
+    if stiffness_diag_in is None:
+        stiffness_diag_in = [200, 500, 500, 60, 60, 60]
+    assert len(damping_diag_in) == 6
+    if damping_diag_in is None:
+        damping_diag_in = [2.5, 2.5, 2.5, 1.0, 1.0, 1.0]
+    assert len(stiffness_diag_out) == 6
+    if stiffness_diag_out is None:
+        stiffness_diag_out = [100, 0, 0, 60, 60, 60]
+    assert len(damping_diag_out) == 6
+    if damping_diag_out is None:
+        damping_diag_out = [2.5, 2.5, 2.5, 1.0, 1.0, 1.0]
+    assert len(forces) == 6
+    if forces is None:
+        forces = [0, 0, 0, 0, 0, 0]
+
+    keywords_in = {
+        "stiffness_diag": stiffness_diag_in,
+        "damping_diag": damping_diag_in,
+        "forces": forces,
+        "timeout": timeout,
+    }
+    keywords_out = {
+        "stiffness_diag": stiffness_diag_out,
+        "damping_diag": damping_diag_out,
+        "forces": forces,
+        "timeout": timeout,
+    }
+
+    move_arm_distanced(
+        pose, start_distance, frame_name, follow_arm=False
+    )  # before handle
+    set_gripper(True)
+    move_arm_distanced(
+        pose, mid_distance, frame_name, follow_arm=follow_arm, **keywords_in
+    )  # moving in
+    set_gripper(False)  # grab
+
+    pull_start = frame_transformer.get_hand_position_in_frame(
+        frame_name, in_common_pose=True)
+
+    # run swing trajectory
+    for arm_pose in trajectory:
+        move_arm(arm_pose, frame_name, body_assist=True, **keywords_in)
+
+    pull_end = frame_transformer.get_hand_position_in_frame(
+        frame_name, in_common_pose=True
+    )
+
+    if release_after:
+        set_gripper(True)
+
+    return pull_start, pull_end
+
+
+    a = 2
+
