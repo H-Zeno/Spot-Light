@@ -103,6 +103,7 @@ def get_pictures_from_sources(
     save_path: Optional[str] = None,
     auto_rotate: bool = True,
     vis_block: bool = False,
+    gripper_open: bool = True
 ) -> list[(np.ndarray, image_pb2.ImageResponse)]:
     """
     Get picture from specified sources
@@ -114,7 +115,7 @@ def get_pictures_from_sources(
     :return: list of (image as np array, bosdyn ImageResponse), where the first is the image as a numpy array, and the
     second is the ImageResponse object for every capture
     """
-    set_gripper(True)
+    set_gripper(gripper_open)
     image_request = [
         build_image_request(source, pixel_format=pixel_format, quality_percent=100)
         for source in image_sources
@@ -191,6 +192,7 @@ def get_pictures_from_sources(
     return images
 
 
+
 def get_rgb_pictures(
     image_sources: Iterable[str],
     auto_rotate: bool = True,
@@ -241,6 +243,7 @@ def get_d_pictures(
     image_sources: Iterable[str],
     auto_rotate: bool = True,
     vis_block: bool = False,
+    gripper_open: bool = True
 ) -> list[(np.ndarray, image_pb2.ImageResponse)]:
     """
     Get depth pictures of specified image sources.
@@ -256,7 +259,7 @@ def get_d_pictures(
         "vis_block": vis_block,
     }
     pixel_format = image_pb2.Image.PixelFormat.PIXEL_FORMAT_DEPTH_U16
-    images = get_pictures_from_sources(pixel_format=pixel_format, **kwargs)
+    images = get_pictures_from_sources(pixel_format=pixel_format, gripper_open=gripper_open, **kwargs)
     return images
 
 

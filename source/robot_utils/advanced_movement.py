@@ -18,7 +18,9 @@ from robot_utils.video import (
     GRIPPER_DEPTH,
     get_d_pictures,
     point_cloud_from_camera_captures,
+    select_points_from_bounding_box
 )
+from utils.camera_geometry import plane_fitting_open3d
 from scipy.spatial.transform import Rotation
 from utils import vis
 from utils.coordinates import (
@@ -43,6 +45,7 @@ robot_command_client = RobotCommandClientSingleton()
 robot = RobotSingleton()
 world_object_client = WorldObjectClientSingleton()
 
+from utils.object_detetion import BBox
 
 def rotate(
     end_pose: Pose2D,
@@ -603,3 +606,110 @@ def pull_swing_trajectory(
 
     a = 2
 
+def pull_swing_trajectory_test(
+    pose: Pose3D,
+    start_distance: float,
+    mid_distance: float,
+    trajectory: List,
+    frame_name: str,
+    stiffness_diag_in: list[int] | None = None,
+    damping_diag_in: list[float] | None = None,
+    stiffness_diag_out: list[int] | None = None,
+    damping_diag_out: list[float] | None = None,
+    forces: list[float] | None = None,
+    release_after: bool = True,
+    follow_arm: bool = False,
+    timeout: float = 15.0,
+) -> (Pose3D, Pose3D):
+    """
+    Executes a pulling motion along a swing trajectory
+    :param pose: pose of knob in 3D space
+    :param start_distance: how far from the knob to start grab
+    :param mid_distance: how far to go before grabbing
+    :param frame_name:
+    :param release_after: release the knob after pulling motion
+    :param sleep: whether to sleep in between motions for safety
+    """
+    assert len(stiffness_diag_in) == 6
+    if stiffness_diag_in is None:
+        stiffness_diag_in = [200, 500, 500, 60, 60, 60]
+    assert len(damping_diag_in) == 6
+    if damping_diag_in is None:
+        damping_diag_in = [2.5, 2.5, 2.5, 1.0, 1.0, 1.0]
+    assert len(stiffness_diag_out) == 6
+    if stiffness_diag_out is None:
+        stiffness_diag_out = [100, 0, 0, 60, 60, 60]
+    assert len(damping_diag_out) == 6
+    if damping_diag_out is None:
+        damping_diag_out = [2.5, 2.5, 2.5, 1.0, 1.0, 1.0]
+    assert len(forces) == 6
+    if forces is None:
+        forces = [0, 0, 0, 0, 0, 0]
+
+    keywords_in = {
+        "stiffness_diag": stiffness_diag_in,
+        "damping_diag": damping_diag_in,
+        "forces": forces,
+        "timeout": timeout,
+    }
+    keywords_out = {
+        "stiffness_diag": stiffness_diag_out,
+        "damping_diag": damping_diag_out,
+        "forces": forces,
+        "timeout": timeout,
+    }
+
+    move_arm_distanced(
+        pose, start_distance, frame_name, follow_arm=False
+    )  # before handle
+    set_gripper(True)
+    move_arm_distanced(
+        pose, mid_distance, frame_name, follow_arm=follow_arm, **keywords_in
+    )  # moving in
+    set_gripper(False)  # grab
+
+    # control loop
+    depth_image = get_d_pictures(
+                    image_sources=["hand_depth"],
+                    vis_block=True,
+                    gripper_open=False)
+
+    bbx = BBox(xmin=0, xmax=50, ymin=0, ymax=50)
+
+    drawer_bbox_pointss = select_points_from_bounding_box(
+        depth_image[0], [bbx], frame_name, vis_block=False
+    )
+
+    # points = point_cloud_from_camera_captures(depth_images=depth_image,
+    #                                           frame_relative_to=frame_name)
+
+    # TODO: filter for points nearest to center?
+    # normal = plane_fitting_open3d(
+    #     points, threshold=0.04, min_samples=3, vis_block=True
+    # )
+
+
+    return pose
+
+
+
+    a = 2
+
+    # pull_start = frame_transformer.get_hand_position_in_frame(
+    #     frame_name, in_common_pose=True)
+    #
+    # # run swing trajectory
+    # for arm_pose in trajectory:
+    #     move_arm(arm_pose, frame_name, body_assist=True, **keywords_in)
+    #
+    # pull_end = frame_transformer.get_hand_position_in_frame(
+    #     frame_name, in_common_pose=True
+    # )
+    #
+    # if release_after:
+    #     set_gripper(True)
+    #
+    # return pull_start, pull_end
+
+
+    a = 2

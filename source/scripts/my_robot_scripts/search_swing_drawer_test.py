@@ -10,7 +10,7 @@ from bosdyn.api.image_pb2 import ImageResponse
 from bosdyn.client import Sdk, math_helpers
 from bosdyn.api import trajectory_pb2
 from bosdyn.util import seconds_to_duration
-from robot_utils.advanced_movement import pull, push, pull_swing_trajectory
+from robot_utils.advanced_movement import pull, push, pull_swing_trajectory, pull_swing_trajectory_test
 from robot_utils.base import ControlFunction, take_control_with_function
 from robot_utils.basic_movements import carry, gaze, move_arm, move_body, stow_arm, set_gripper
 from robot_utils.frame_transformer import FrameTransformerSingleton
@@ -18,6 +18,7 @@ from robot_utils.video import (
     GRIPPER_IMAGE_COLOR,
     frame_coordinate_from_depth_image,
     get_camera_rgbd,
+    get_d_pictures,
     get_rgb_pictures,
     localize_from_images,
     select_points_from_bounding_box,
@@ -144,7 +145,7 @@ class _StaticSwingDoor(ControlFunction):
         )
 
         # set initial arm coords
-        knob_pose = Pose3D((0.35, 0.9, 0.75)) #high cabinet
+        knob_pose = Pose3D((0.35, 0.8, 0.75)) #high cabinet
         # knob_pose = Pose3D((1.51, -2.45, 0.57))#-2.47 #large cabinet
         # knob_pose = Pose3D((1.45, -2.45, 0.57)) # large cabinet, +z
         knob_pose.set_rot_from_rpy((0,0,angle), degrees=True)
@@ -154,9 +155,11 @@ class _StaticSwingDoor(ControlFunction):
         # carry()
         # move_arm(knob_pose, frame_name, body_assist=True)
 
+        a = 2
 
 
-        #calc trajectory
+
+        # calc trajectory
         traj = build_swing_trajectory(start_pose=knob_pose,
                                      lever=0.33,
                                      frame_name=frame_name,
@@ -164,9 +167,9 @@ class _StaticSwingDoor(ControlFunction):
                                      angle=90,
                                      N=1)
 
-        pull_swing_trajectory(pose=knob_pose,
+        pull_swing_trajectory_test(pose=knob_pose,
                               start_distance=0.1,
-                              mid_distance=-0.1,
+                              mid_distance=-0.05,
                               trajectory=traj,
                               frame_name=frame_name,
                               stiffness_diag_in=STIFFNESS_DIAG1,
