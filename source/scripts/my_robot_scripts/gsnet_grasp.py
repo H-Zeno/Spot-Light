@@ -5,7 +5,7 @@ import time
 import numpy as np
 
 from bosdyn.client import Sdk
-from robot_utils.advanced_movement import adapt_grasp, positional_grab
+from robot_utils.advanced_movement import adapt_grasp, positional_grab, positional_release
 from robot_utils.base import ControlFunction, take_control_with_function
 from robot_utils.basic_movements import carry_arm, move_body, set_gripper, stow_arm
 from robot_utils.frame_transformer import FrameTransformerSingleton
@@ -26,6 +26,8 @@ from utils.singletons import (
     WorldObjectClientSingleton,
 )
 
+from robot_utils.basic_movements import move_arm_distanced, move_arm
+
 frame_transformer = FrameTransformerSingleton()
 graph_nav_client = GraphNavClientSingleton()
 image_client = ImageClientSingleton()
@@ -35,6 +37,15 @@ robot_state_client = RobotStateClientSingleton()
 world_object_client = WorldObjectClientSingleton()
 logger = LoggerSingleton()
 
+STAND_DISTANCE = 1.0
+STIFFNESS_DIAG1 = [200, 500, 500, 60, 60, 45]
+STIFFNESS_DIAG2 = [100, 0, 0, 60, 30, 30]
+DAMPING_DIAG = [2.5, 2.5, 2.5, 1.0, 1.0, 1.0]
+FORCES = [0, 0, 0, 0, 0, 0]
+CAMERA_ADD_COORDS = (-0.25, 0, 0.3)
+CAMERA_ANGLE = 55
+SPLIT_THRESH = 1.0
+MIN_PAIRWISE_DRAWER_DISTANCE = 0.1
 
 def joint_optimization_vec(
     target: Pose3D,
@@ -230,9 +241,27 @@ class _BetterGrasp(ControlFunction):
         move_body(body_after2.to_dimension(2), frame_name)
 
 
-        time.sleep(5)
-        set_gripper(True)
-        time.sleep(2)
+        # release
+        #get z coord of grab
+        z_coord = grasp_pose_new.coordinates[-1]
+        pose_hand = frame_transformer.get_hand_position_in_frame(frame_name, in_common_pose=True)
+        pose_hand.coordinates[-1] = z_coord
+
+
+        positional_release(pose=pose_hand,
+                           frame_name=frame_name,
+                           stiffness_diag_in=STIFFNESS_DIAG1,
+                           stiffness_diag_out=STIFFNESS_DIAG2,
+                           damping_diag_in=DAMPING_DIAG,
+                           damping_diag_out=DAMPING_DIAG,
+                           forces=FORCES,
+                           follow_arm=True,
+                           release_after=True)
+
+
+        # time.sleep(5)
+        # set_gripper(True)
+        # time.sleep(2)
 
         stow_arm()
         for name, start, end in (
