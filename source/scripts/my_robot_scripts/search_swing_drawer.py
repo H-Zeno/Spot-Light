@@ -132,8 +132,8 @@ class _StaticSwingDoor(ControlFunction):
         positive_rotation = False
 
         # position in front of shelf
-        x, y, angle = 1.35, 0.7, 180 #high cabinet, -z
-        # x, y, angle = 1.65, -1.4, 270#-1.5 #large cabinet
+        # x, y, angle = 1.35, 0.7, 180 #high cabinet, -z
+        x, y, angle = 1.65, -1.4, 270#-1.5 #large cabinet
         # x, y, angle = 1.25, -1.5, 270 # large cabinet, +z
 
         pose = Pose2D(np.array([x, y]))
@@ -144,8 +144,9 @@ class _StaticSwingDoor(ControlFunction):
         )
 
         # set initial arm coords
-        knob_pose = Pose3D((0.35, 0.9, 0.75)) #high cabinet
+        # knob_pose = Pose3D((0.35, 0.9, 0.75)) #high cabinet
         # knob_pose = Pose3D((1.51, -2.45, 0.57))#-2.47 #large cabinet
+        knob_pose = Pose3D((1.51, -2.45, 0.23))  # -2.47 #large cabinet lower rank
         # knob_pose = Pose3D((1.45, -2.45, 0.57)) # large cabinet, +z
         knob_pose.set_rot_from_rpy((0,0,angle), degrees=True)
         # arm_pose.set_rot_from_rpy((0, 0, 180), degrees=True)
