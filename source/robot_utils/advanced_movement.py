@@ -185,6 +185,56 @@ def positional_grab(
     set_gripper(False)
     move_arm_distanced(distance=distance_start, timeout=6, **static_params)
 
+def positional_release(    pose: Pose3D,
+    frame_name: str,
+    stiffness_diag_in: list[int] | None = None,
+    damping_diag_in: list[float] | None = None,
+    stiffness_diag_out: list[int] | None = None,
+    damping_diag_out: list[float] | None = None,
+    forces: list[float] | None = None,
+    release_after: bool = True,
+    follow_arm: bool = False,
+    timeout: float = 6.0,
+) -> (Pose3D, Pose3D):
+
+    assert len(stiffness_diag_in) == 6
+    if stiffness_diag_in is None:
+        stiffness_diag_in = [200, 500, 500, 60, 60, 60]
+    assert len(damping_diag_in) == 6
+    if damping_diag_in is None:
+        damping_diag_in = [2.5, 2.5, 2.5, 1.0, 1.0, 1.0]
+    assert len(stiffness_diag_out) == 6
+    if stiffness_diag_out is None:
+        stiffness_diag_out = [100, 0, 0, 60, 60, 60]
+    assert len(damping_diag_out) == 6
+    if damping_diag_out is None:
+        damping_diag_out = [2.5, 2.5, 2.5, 1.0, 1.0, 1.0]
+    assert len(forces) == 6
+    if forces is None:
+        forces = [0, 0, 0, 0, 0, 0]
+
+    keywords_in = {
+        "stiffness_diag": stiffness_diag_in,
+        "damping_diag": damping_diag_in,
+        "forces": forces,
+        "timeout": timeout,
+    }
+    keywords_out = {
+        "stiffness_diag": stiffness_diag_out,
+        "damping_diag": damping_diag_out,
+        "forces": forces,
+        "timeout": timeout,
+    }
+
+    move_arm(pose=pose, frame_name=frame_name, body_assist=True, **keywords_in)
+
+    if release_after:
+        set_gripper(True)
+
+    move_arm_distanced(pose=pose, distance=0.3, frame_name=frame_name)
+
+    return
+
 
 def pull(
     pose: Pose3D,
