@@ -782,7 +782,6 @@ def project_3D_to_2D(
     pcd_2d = pcd_2d_hom[:, :2] / pcd_2d_hom[:, -1, np.newaxis]
     return pcd_2d
 
-
 def select_points_from_bounding_box(
     depth_image_response: (np.ndarray, ImageResponse),
     bboxes: list[BBox],

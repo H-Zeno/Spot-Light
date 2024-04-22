@@ -153,74 +153,46 @@ def calculate_swing_params(
     matches: list[Match],
     depth_image_response: (np.ndarray, ImageResponse),
     frame_name: str,
-    ) -> list[bool]:
+    ) -> tuple(list[bool]):
 
     """
     Calculates rotation directionm and swing lever of all swing doors in the image.
     """
     #todo: get lever from point cloud
     positive_rotation = []
+    metric_lever = []
 
     drawer_boxes = [match.drawer.bbox for match in matches]
     handle_boxes = [match.handle.bbox for match in matches]
 
     depth_image, depth_response = depth_image_response
 
-
     # determine center coordinates for all handles and drawers
     for idx, _ in enumerate(handle_boxes):
         handle_center = determine_handle_center(depth_image, handle_boxes[idx])
         drawer_center = determine_handle_center(depth_image, drawer_boxes[idx])
 
+        # calcualte drawer xmin and xmax coords for lever calculation
+        pixel_coord_lever = np.array([[int(drawer_boxes[idx].xmin), int((drawer_boxes[idx].ymin + drawer_boxes[idx].ymax) / 2)],
+                                           [int(drawer_boxes[idx].xmax), int((drawer_boxes[idx].ymin + drawer_boxes[idx].ymax) / 2)],
+                                           handle_center])
+
+        frame_coord_drawer_min = frame_coordinate_from_depth_image(depth_image=depth_image,
+                                                                depth_response=depth_response,
+                                                                pixel_coordinatess=pixel_coord_lever,
+                                                                frame_name=frame_name,
+                                                                vis_block=True,
+                                                                ).reshape((-1, 3))
+
+
         if handle_center[0] > drawer_center[0]:
             positive_rotation.append(False)
+            metric_lever.append(np.linalg.norm(frame_coord_drawer_min[0,:]-frame_coord_drawer_min[2,:]))
         elif handle_center[0] < drawer_center[0]:
             positive_rotation.append(True)
+            metric_lever.append(np.linalg.norm(frame_coord_drawer_min[1, :] - frame_coord_drawer_min[2, :]))
 
-    return positive_rotation
-
-
-    # use centers to get depth and position of handle in frame coordinates
-    # center_coordss = frame_coordinate_from_depth_image(
-    #     depth_image=depth_image,
-    #     depth_response=depth_response,
-    #     pixel_coordinatess=handle_centers,
-    #     frame_name=frame_name,
-    #     vis_block=False,
-    # ).reshape((-1, 3))
-    #
-    # # select all points within the point cloud that belong to a drawer (not a handle) and determine the planes
-    # # the axis of motion is simply the normal of that plane
-    # drawer_bbox_pointss = select_points_from_bounding_box(
-    #     depth_image_response, drawer_boxes, frame_name, vis_block=False
-    # )
-    # handle_bbox_pointss = select_points_from_bounding_box(
-    #     depth_image_response, handle_boxes, frame_name, vis_block=False
-    # )
-    # points_frame = drawer_bbox_pointss[0]
-    # drawer_masks = drawer_bbox_pointss[1]
-    # handle_masks = handle_bbox_pointss[1]
-    # drawer_only_masks = drawer_masks & (~handle_masks)
-    # # for mask in drawer_only_masks:
-    # #     vis.show_point_cloud_in_out(points_frame, mask)
-    #
-    # # we use the current body position to get the normal that points towards the robot, not away
-    # current_body = frame_transformer.get_current_body_position_in_frame(
-    #     frame_name, in_common_pose=True
-    # )
-    # poses = []
-    # for center_coords, bbox_mask in zip(center_coordss, drawer_only_masks):
-    #     pose = find_plane_normal_pose(
-    #         points_frame[bbox_mask],
-    #         center_coords,
-    #         current_body,
-    #         threshold=0.03,
-    #         min_samples=10,
-    #         vis_block=False,
-    #     )
-    #     poses.append(pose)
-
-    return
+    return positive_rotation, metric_lever
 
 
 def calculate_handle_poses(
@@ -313,16 +285,18 @@ def cluster_handle_poses(
         avg_poses.append(avg_pose)
     return avg_poses
 
-def filter_handle_poses(handle_poses: list[Pose3D], positive_rotations: list[bool]):
+def filter_handle_poses(handle_poses: list[Pose3D], positive_rotations: list[bool], metric_levers: list[float]):
 
     filtered_rotations = []
     filtered_poses = []
+    filtered_levers = []
     for idx, pose in enumerate(handle_poses):
         if 0.05 < pose.coordinates[-1] < 0.75:
             filtered_poses.append(pose)
             filtered_rotations.append(positive_rotations[idx])
+            filtered_levers.append(metric_levers[idx])
 
-    return filtered_poses, filtered_rotations
+    return filtered_poses, filtered_rotations, filtered_levers
 
 def refine_handle_position(
     handle_detections: list[Detection],
@@ -423,9 +397,8 @@ class _DynamicSwingDoor(ControlFunction):
         positive_rotation = False
 
         # position in front of shelf
-        # x, y, angle = 1.35, 0.7, 180 #high cabinet, -z
-        # x, y, angle = 1.65, -1.4, 270#-1.5 #large cabinet
-        x, y, angle = 1.4, -1.2, 270 # large cabinet, +z
+        # x, y, angle = 1.4, -1.2, 270 # large cabinet, +z
+        x, y, angle = 1.4, -1.2, 270  # large cabinet, +z
 
         pose = Pose2D(np.array([x, y]))
         pose.set_rot_from_angle(angle, degrees=True)
@@ -468,11 +441,11 @@ class _DynamicSwingDoor(ControlFunction):
             filtered_sorted_matches, depth_response, frame_name
         )
         # handle_posess.append(handle_poses)
-        positive_rotations = calculate_swing_params(filtered_sorted_matches, depth_response, frame_name)
+        positive_rotations, metric_levers = calculate_swing_params(filtered_sorted_matches, depth_response, frame_name)
         # print("all detections:", *handle_posess, sep="\n")
         # handle_poses = cluster_handle_poses(handle_posess, eps=MIN_PAIRWISE_DRAWER_DISTANCE)
         # print("clustered:", *handle_poses, sep="\n")
-        handle_poses, positive_rotations = filter_handle_poses(handle_poses, positive_rotations)
+        handle_poses, positive_rotations, metric_levers = filter_handle_poses(handle_poses, positive_rotations, metric_levers)
         print("filtered:", *handle_poses, sep="\n")
 
         camera_add_pose_refinement_right = Pose3D((-0.35, -0.2, 0.15))
@@ -512,7 +485,7 @@ class _DynamicSwingDoor(ControlFunction):
 
             a = 2
             traj = build_swing_trajectory(start_pose=refined_pose,
-                                              lever=0.33,
+                                              lever=metric_levers[idx],
                                               frame_name=frame_name,
                                               positive_rotation=positive_rotations[idx],
                                               angle=90,
@@ -531,10 +504,6 @@ class _DynamicSwingDoor(ControlFunction):
                                       follow_arm=False,
                                       release_after=True
                                       )
-
-            a=2
-
-
 
 
 
