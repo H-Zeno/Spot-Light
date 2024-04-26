@@ -139,10 +139,12 @@ def stow_arm(gripper_open: bool = False) -> None:
     """
     Put the arm in stowed position.
     """
-    set_gripper(gripper_open)
+
     # Stow the arm
     # Build the stow command using RobotCommandBuilder
     stow = RobotCommandBuilder.arm_stow_command()
+
+    set_gripper(gripper_open)
 
     # Issue the command via the RobotCommandClient
     stow_command_id = robot_command_client.robot_command(stow)

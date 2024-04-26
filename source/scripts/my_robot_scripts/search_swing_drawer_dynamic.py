@@ -65,7 +65,7 @@ MIN_PAIRWISE_DRAWER_DISTANCE = 0.1
 ITEMS = ["deer toy", "small clock", "headphones", "watch", "highlighter", "red bottle"]
 # ITEMS = ["watch"]
 
-def build_swing_trajectory(start_pose: Pose3D, lever: float, frame_name: str, positive_rotation: bool, angle: int=80, N: int =5):
+def build_swing_trajectory(start_pose: Pose3D, lever: float, frame_name: str, positive_rotation: bool, roll:float=0, angle: int=80, N: int =5):
     """
     build a swing trajectory of Pose3D poses following the handle of a swing door
 
@@ -84,7 +84,10 @@ def build_swing_trajectory(start_pose: Pose3D, lever: float, frame_name: str, po
     # return z rotation of the knob pose
     r = Rotation.from_matrix(start_pose.rot_matrix)
     euler_angles = r.as_euler("zyx", degrees=True)
-    rot = euler_angles[0]
+
+    rotX = euler_angles[2]
+    rotY = euler_angles[1]
+    rotZ = euler_angles[0]
 
     trajectory = []
     if positive_rotation == True:
@@ -94,7 +97,8 @@ def build_swing_trajectory(start_pose: Pose3D, lever: float, frame_name: str, po
             p_W = start_pose.coordinates + delta_p_W
 
             hand_pose = Pose3D(coordinates=p_W)
-            hand_pose.set_rot_from_rpy((0, 0, rot + angle), degrees=True)
+            hand_pose.set_rot_from_rpy((rotX, rotY, rotZ + angle), degrees=True)
+            hand_pose.set_rot_from_direction(hand_pose.direction(), roll=roll, degrees=True)
 
             trajectory.append(hand_pose)
 
@@ -105,7 +109,8 @@ def build_swing_trajectory(start_pose: Pose3D, lever: float, frame_name: str, po
             p_W = start_pose.coordinates + delta_p_W
 
             hand_pose = Pose3D(coordinates=p_W)
-            hand_pose.set_rot_from_rpy((0, 0, rot - angle), degrees=True)
+            hand_pose.set_rot_from_rpy((rotX, rotY, rotZ - angle), degrees=True)
+            hand_pose.set_rot_from_direction(hand_pose.direction(), roll=roll, degrees=True)
 
             trajectory.append(hand_pose)
 
@@ -137,7 +142,7 @@ def find_plane_normal_pose(
     min_samples: int = 3,
     vis_block: bool = False,
 ) -> Pose3D:
-    # TODO: filter for points nearest to center?
+
     normal = plane_fitting_open3d(
         points, threshold=threshold, min_samples=min_samples, vis_block=vis_block
     )
@@ -158,7 +163,7 @@ def calculate_swing_params(
     """
     Calculates rotation directionm and swing lever of all swing doors in the image.
     """
-    #todo: get lever from point cloud
+
     positive_rotation = []
     metric_lever = []
 
@@ -183,7 +188,6 @@ def calculate_swing_params(
                                                                 frame_name=frame_name,
                                                                 vis_block=True,
                                                                 ).reshape((-1, 3))
-
 
         if handle_center[0] > drawer_center[0]:
             positive_rotation.append(False)
@@ -321,7 +325,7 @@ def refine_handle_position(
         centers_3D = frame_coordinate_from_depth_image(
             depth_image, depth_response, centers_2D, frame_name, vis_block=False
         )
-        closest_new_idx = np.argmin(
+        closest_new_idx = np.nanargmin(
             np.linalg.norm(centers_3D - prev_center_3D, axis=1), axis=0
         )
         handle_bbox = handle_detections[closest_new_idx].bbox
@@ -353,15 +357,12 @@ def refine_handle_position(
         depth_image_response,
         [handle_bbox, surrounding_bbox],
         frame_name,
-        vis_block=False,
+        vis_block=True,
     )
     surr_only_mask = surr_mask & (~handle_mask)
     current_body = frame_transformer.get_current_body_position_in_frame(
         frame_name, in_common_pose=True
     )
-
-    # vis_block = False
-    # vis.show_point_cloud_in_out(points_frame, surr_only_mask)
 
     detection_coordinates_3D = detection_coordinates_3D.reshape((3,))
     pose = find_plane_normal_pose(
@@ -372,7 +373,25 @@ def refine_handle_position(
         min_samples=10,
         vis_block=False,
     )
-    return pose, discarded
+
+    # PCA
+    import open3d as o3d
+
+    pcd = points_frame[handle_mask]
+    points = pcd
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(points)
+    mean, cov = pcd.compute_mean_and_covariance()
+    eigenvalues, eigenvectors = np.linalg.eig(cov)
+    sorted_indices = np.argsort(eigenvalues)[::-1]
+    eigenvectors = eigenvectors[:, sorted_indices]
+    PA_w = eigenvectors[:,0]
+
+    # Compute the angle between the principal axisand the Z axis of world system
+    roll_angle = np.degrees(np.pi/2 - np.arccos(np.dot(PA_w, np.array([0, 0, 1])) / (
+                np.linalg.norm(PA_w) * np.linalg.norm(np.array([0, 0, 1])))))
+
+    return pose, discarded, roll_angle
 
 def calc_swing_door_rotation(pose, discarded):
     pass
@@ -397,8 +416,8 @@ class _DynamicSwingDoor(ControlFunction):
         positive_rotation = False
 
         # position in front of shelf
-        # x, y, angle = 1.4, -1.2, 270 # large cabinet, +z
-        x, y, angle = 1.4, -1.2, 270  # large cabinet, +z
+        x, y, angle = 2.2, -1.0, 250 # large cabinet, +z
+        # x, y, angle = 1.1, -1.2, 270  # large cabinet, +z
 
         pose = Pose2D(np.array([x, y]))
         pose.set_rot_from_angle(angle, degrees=True)
@@ -409,8 +428,8 @@ class _DynamicSwingDoor(ControlFunction):
 
         # set initial arm coords
         # ground truth coord of handle
-        # knob_pose = Pose3D((1.35, -2.4, 0.57))
-        cabinet_pose = Pose3D((1.65, -2.45, 0.23)) # large cabinet, +z
+        cabinet_pose = Pose3D((1.90, -2.4, 0.20))
+        # cabinet_pose = Pose3D((1.35, -2.45, 0.61)) # large cabinet, +z
         cabinet_pose.set_rot_from_rpy((0,0,angle), degrees=True)
         # carry()
         # move_arm(knob_pose, frame_name, body_assist=True)
@@ -452,7 +471,7 @@ class _DynamicSwingDoor(ControlFunction):
         camera_add_pose_refinement_right.set_rot_from_rpy((0, 25, 35), degrees=True)
         camera_add_pose_refinement_left = Pose3D((-0.35, 0.2, 0.15))
         camera_add_pose_refinement_left.set_rot_from_rpy((0, 25, -35), degrees=True)
-        ref_add_poses = (camera_add_pose_refinement_right, camera_add_pose_refinement_left)
+        ref_add_poses = [camera_add_pose_refinement_right]#, camera_add_pose_refinement_left)
 
         detection_drawer_pairs = []
 
@@ -467,15 +486,15 @@ class _DynamicSwingDoor(ControlFunction):
             for ref_pose in ref_add_poses:
                 move_arm(handle_pose @ ref_pose, frame_name)
                 depth_response, color_response = get_camera_rgbd(
-                    in_frame="image", vis_block=False, cut_to_size=False
+                    in_frame="image", vis_block=True, cut_to_size=False
                 )
                 predictions = drawer_predict(
-                    color_response[0], config, input_format="bgr", vis_block=False
+                    color_response[0], config, input_format="bgr", vis_block=True
                 )
 
                 handle_detections = [det for det in predictions if det.name == "handle"]
 
-                refined_pose, discarded = refine_handle_position(
+                refined_pose, discarded, roll_angle = refine_handle_position(
                     handle_detections, handle_pose, depth_response, frame_name
                 )
 
@@ -488,8 +507,11 @@ class _DynamicSwingDoor(ControlFunction):
                                               lever=metric_levers[idx],
                                               frame_name=frame_name,
                                               positive_rotation=positive_rotations[idx],
+                                              roll=roll_angle,
                                               angle=90,
-                                              N=5)
+                                              N=2)
+
+            refined_pose.set_rot_from_direction(refined_pose.direction(), roll=roll_angle, degrees=True)
 
             pull_swing_trajectory(pose=refined_pose,
                                       start_distance=0.1,

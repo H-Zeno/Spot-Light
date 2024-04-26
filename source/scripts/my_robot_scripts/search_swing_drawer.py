@@ -65,7 +65,7 @@ MIN_PAIRWISE_DRAWER_DISTANCE = 0.1
 ITEMS = ["deer toy", "small clock", "headphones", "watch", "highlighter", "red bottle"]
 # ITEMS = ["watch"]
 
-def build_swing_trajectory(start_pose: Pose3D, lever: float, frame_name: str, positive_rotation: bool, angle: int=80, N: int =5):
+def build_swing_trajectory(start_pose: Pose3D, lever: float, frame_name: str, positive_rotation: bool, roll: float, angle: int=80, N: int =5):
     """
     build a swing trajectory of Pose3D poses following the handle of a swing door
 
@@ -77,6 +77,9 @@ def build_swing_trajectory(start_pose: Pose3D, lever: float, frame_name: str, po
     @param N: number of trajectory points. NOTE: using impedance control, one might be sufficient.
     @return: trajectory, List of Pose3D objects
     """
+
+    # define cos of drawer (x > direction of knob, z > world z, y > cross product)
+
 
     # Define angles for each point in the trajectory.
     angles = np.linspace(0,angle,N+1)
@@ -95,6 +98,7 @@ def build_swing_trajectory(start_pose: Pose3D, lever: float, frame_name: str, po
 
             hand_pose = Pose3D(coordinates=p_W)
             hand_pose.set_rot_from_rpy((0, 0, rot + angle), degrees=True)
+            hand_pose.set_rot_from_direction(hand_pose.direction(), roll=roll, degrees=True)
 
             trajectory.append(hand_pose)
 
@@ -106,6 +110,7 @@ def build_swing_trajectory(start_pose: Pose3D, lever: float, frame_name: str, po
 
             hand_pose = Pose3D(coordinates=p_W)
             hand_pose.set_rot_from_rpy((0, 0, rot - angle), degrees=True)
+            hand_pose.set_rot_from_direction(hand_pose.direction(), roll=roll, degrees=True)
 
             trajectory.append(hand_pose)
 
@@ -129,11 +134,11 @@ class _StaticSwingDoor(ControlFunction):
         )
 
         # set rotation (depends on the swing door -> left swing (negative) / right swing (positive))
-        positive_rotation = False
+        positive_rotation = True
 
         # position in front of shelf
         # x, y, angle = 1.35, 0.7, 180 #high cabinet, -z
-        x, y, angle = 1.65, -1.4, 270#-1.5 #large cabinet
+        x, y, angle = 1.25, -1.4, 270#-1.5 #large cabinet
         # x, y, angle = 1.25, -1.5, 270 # large cabinet, +z
 
         pose = Pose2D(np.array([x, y]))
@@ -146,8 +151,8 @@ class _StaticSwingDoor(ControlFunction):
         # set initial arm coords
         # knob_pose = Pose3D((0.35, 0.9, 0.75)) #high cabinet
         # knob_pose = Pose3D((1.51, -2.45, 0.57))#-2.47 #large cabinet
-        knob_pose = Pose3D((1.51, -2.45, 0.23))  # -2.47 #large cabinet lower rank
-        # knob_pose = Pose3D((1.45, -2.45, 0.57)) # large cabinet, +z
+        # knob_pose = Pose3D((1.51, -2.45, 0.23))  # -2.47 #large cabinet lower rank
+        knob_pose = Pose3D((1.45, -2.35, 0.57)) # large cabinet, +z
         knob_pose.set_rot_from_rpy((0,0,angle), degrees=True)
         # arm_pose.set_rot_from_rpy((0, 0, 180), degrees=True)
         # set_gripper(True)
@@ -155,15 +160,22 @@ class _StaticSwingDoor(ControlFunction):
         # carry()
         # move_arm(knob_pose, frame_name, body_assist=True)
 
+        PA_w = np.array((0,0,1))
+        roll_angle = np.degrees(np.pi / 2 - np.arccos(np.dot(PA_w, np.array([0, 0, 1])) / (
+                np.linalg.norm(PA_w) * np.linalg.norm(np.array([0, 0, 1])))))
 
+        # pose.set_rot_from_direction(pose.direction(), roll_angle, degrees=True)
 
         #calc trajectory
         traj = build_swing_trajectory(start_pose=knob_pose,
                                      lever=0.33,
                                      frame_name=frame_name,
                                      positive_rotation=positive_rotation,
+                                     roll=roll_angle,
                                      angle=90,
                                      N=1)
+
+        knob_pose.set_rot_from_direction(knob_pose.direction(), roll=roll_angle, degrees=True)
 
         pull_swing_trajectory(pose=knob_pose,
                               start_distance=0.1,
