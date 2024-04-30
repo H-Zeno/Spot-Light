@@ -8,13 +8,25 @@ import torch
 from PIL import Image
 import requests
 import torch
+from openai import OpenAI
+import base64
+from io import BytesIO
+from PIL import Image
+from skimage.transform import resize
+
 torch.cuda.empty_cache()
-
-import os
-os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:256"
-
+# def build_prompt(affordance_classes):
+#     # build prompt
+#     prmpt = f"<|im_start|>system\nAnswer the questions.<|im_end|><|im_start|>user\n<image>\nIs this "
 #
-# classes = ["light switch", "light switch", "light switch"]
+#     for key, value in affordance_classes.items():
+#         if key < len(affordance_classes) - 1:
+#             prmpt += f"a {value} button light switch (if yes answer {key}) OR "
+#         else:
+#             prmpt += f"{value} which is unlikely (if yes answer {key})."
+#     prmpt += "<|im_end|><|im_start|>assistant\n"
+#
+#     return prmpt
 
 classes = ["round light switch",
            "white light switch",
@@ -56,7 +68,7 @@ sv.plot_image(annotated_image, (20, 20))
 Bbox = detections.xyxy
 
 
-switch_bbox = Bbox[1,:]
+switch_bbox = Bbox[4,:]
 x1, y1, x2, y2 = switch_bbox.astype(int)
 x, y, w, h = x1, y1, x2 - x1, y2 - y1
 
@@ -64,25 +76,82 @@ x, y, w, h = x1, y1, x2 - x1, y2 - y1
 cropped_image = image[y:y + h, x:x + w]
 sv.plot_image(cropped_image, (20, 20))
 
-processor = LlavaNextProcessor.from_pretrained("llava-hf/llava-v1.6-mistral-7b-hf")
-model = LlavaNextForConditionalGeneration.from_pretrained("llava-hf/llava-v1.6-mistral-7b-hf", torch_dtype=torch.float16, low_cpu_mem_usage=True)
-model.to("cuda:0")
-
-# prepare image and text prompt, using the appropriate prompt template
-# url = "https://github.com/haotian-liu/LLaVA/blob/1a91fc274d7c35a9b50b3cb29c4247ae5837ce39/images/llava_v1_5_radar.jpg?raw=true"
-# image = Image.open(requests.get(url, stream=True).raw)
-prompt = "<|im_start|>system\nAnswer the questions.<|im_end|><|im_start|>user\n<image>\nIs this a push button light switch, OR a rotating button light switch<|im_end|><|im_start|>assistant\n"
+processor_llava = LlavaNextProcessor.from_pretrained("llava-hf/llava-v1.6-mistral-7b-hf")
+model_llava = LlavaNextForConditionalGeneration.from_pretrained("llava-hf/llava-v1.6-mistral-7b-hf", torch_dtype=torch.float16, low_cpu_mem_usage=True)
+model_llava.to("cuda:0")
 
 affordance_classes = {0: "PUSH",
                       1: "ROTATING",
                       2: "something else"}
 
-def compute_affordance_VLM(cropped_image, affordance_classes, model, processor):
+
+def compute_affordance_VLM_GPT4(cropped_image, affordance_classes, model):
+
     # build prompt
+    prmpt = "Is this "
+
+    for key, value in affordance_classes.items():
+        if key < len(affordance_classes) - 1:
+            prmpt += f"a {value} button light switch (if yes answer {key}) OR "
+        else:
+            prmpt += f"{value} which is unlikely (if yes answer {key})."
+
+    # resize image
+    resized_image = cv2.resize(cropped_image, (512, 512))
+
+    # encode image
+    image = Image.fromarray(resized_image)
+    buffer = BytesIO()
+    image.save(buffer, format="PNG")
+    buffer.seek(0)
+    image_bytes = buffer.read()
+    base64_image = base64.b64encode(image_bytes).decode('utf-8')
+
+    api_key = "..."
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}"
+    }
+
+    payload = {
+        "model": "gpt-4-turbo",
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": prmpt
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{base64_image}",
+                            "detail": "low"
+                        }
+                    }
+                ]
+            }
+        ],
+        "max_tokens": 1
+    }
+
+    response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
+
+    if response.status_code == 200:
+        affordance_key = int(response.json()["choices"][0]["message"]["content"])
+    else:
+        print("Error:", response.status_code)
+
+    return affordance_key
+
+
+def compute_affordance_VLM_llava(cropped_image, affordance_classes, model, processor):
+
     prmpt = f"<|im_start|>system\nAnswer the questions.<|im_end|><|im_start|>user\n<image>\nIs this "
 
     for key, value in affordance_classes.items():
-        if key < len(affordance_classes)-1:
+        if key < len(affordance_classes) - 1:
             prmpt += f"a {value} button light switch (if yes answer {key}) OR "
         else:
             prmpt += f"{value} which is unlikely (if yes answer {key})."
@@ -93,60 +162,12 @@ def compute_affordance_VLM(cropped_image, affordance_classes, model, processor):
 
     affordance_key = int(processor.decode(output[0], skip_special_tokens=True)[-2])
 
-    return affordance_classes[0]
-
-affordance = compute_affordance_VLM(cropped_image=cropped_image, affordance_classes=affordance_classes, model=model, processor=processor)
-
-# inputs = processor(prompt, cropped_image, return_tensors="pt").to("cuda:0")
-# # autoregressively complete prompt
-# output = model.generate(**inputs, max_new_tokens=100)
-# #
-#
-# ans_= processor.decode(output_[0], skip_special_tokens=True)
+    return affordance_key
 
 
-# model = YOLO("yolov8l-worldv2.pt")
-# model.set_classes(classes)
-# model.confidence = 0.005
-# model.iou_threshold = 0.5
-#
-# bounding_box_annotator = sv.BoundingBoxAnnotator()
-# label_annotator = sv.LabelAnnotator()
-#
-# test_image = cv2.imread(path)
-#
-# result = model.predict(test_image)
-#
-# detections = sv.Detections.from_ultralytics(result[0])
-#
-# annotated_image = bounding_box_annotator.annotate(
-#     scene=test_image.copy(),
-#     detections=detections
-# )
-#
-# annotated_image = label_annotator.annotate(
-#     scene=annotated_image,
-#     detections=detections
-# )
-#
-# sv.plot_image(annotated_image, (20, 20))
+# affordance_gemini = compute_affordance_VLM_llava(cropped_image=cropped_image, affordance_classes=affordance_classes, model=model_llava, processor=processor_llava)
+affordance_gpt4 = compute_affordance_VLM_GPT4(cropped_image=cropped_image, affordance_classes=affordance_classes, model=model)
 
 
-# from gradio_client import Client, file
-#
-#
-#
-# client = Client("https://stevengrove-yolo-world.hf.space/--replicas/9i6p7/")
-# result = client.predict(
-# 		file(path),	# filepath  in 'input image' Image component
-# 		classes,	# str  in 'Enter the classes to be detected, separated by comma' Textbox component
-# 		15,	# float (numeric value between 1 and 300) in 'Maximum Number Boxes' Slider component
-# 		0.005,# float (numeric value between 0 and 1) in 'Score Threshold' Slider component
-# 		0.5,	# float (numeric value between 0 and 1) in 'NMS Threshold' Slider component
-# 		api_name="/partial"
-# )
-# print(result)
-# image_client = cv2.imread(result)
-# sv.plot_image(image_client, (20, 20))
 
 a =2
