@@ -15,18 +15,8 @@ from PIL import Image
 from skimage.transform import resize
 
 torch.cuda.empty_cache()
-# def build_prompt(affordance_classes):
-#     # build prompt
-#     prmpt = f"<|im_start|>system\nAnswer the questions.<|im_end|><|im_start|>user\n<image>\nIs this "
-#
-#     for key, value in affordance_classes.items():
-#         if key < len(affordance_classes) - 1:
-#             prmpt += f"a {value} button light switch (if yes answer {key}) OR "
-#         else:
-#             prmpt += f"{value} which is unlikely (if yes answer {key})."
-#     prmpt += "<|im_end|><|im_start|>assistant\n"
-#
-#     return prmpt
+
+
 
 classes = ["round light switch",
            "white light switch",
@@ -40,14 +30,40 @@ classes = ["round light switch",
            "car",
            "horse"]
 
-path = "/home/cvg-robotics/tim_ws/YOLO-World/data/switches/IMG_0362 2.jpeg"
+path = "/home/cvg-robotics/tim_ws/YOLO-World/data/switches/img_closeup_3.png"
 
 model = YOLOWorld(model_id="yolo_world/l")
 model.set_classes(classes)
 
-image = cv2.imread("/home/cvg-robotics/tim_ws/YOLO-World/data/switches/IMG_0362 2.jpeg")
-results = model.infer(image, confidence=0.005)
-detections = sv.Detections.from_inference(results).with_nms(threshold=0.05, class_agnostic=True)
+def filter_detections(detections):
+
+    squaredness = (np.minimum(detections.xyxy[:,2] -detections.xyxy[:,0], detections.xyxy[:,3] -detections.xyxy[:,1])/
+                   np.maximum(detections.xyxy[:,2] -detections.xyxy[:,0], detections.xyxy[:,3] -detections.xyxy[:,1]))
+
+    idx_dismiss = np.where(squaredness < 0.95)[0]
+
+    filtered_detections = sv.Detections.empty()
+    filtered_detections.class_id = np.delete(detections.class_id, idx_dismiss)
+    filtered_detections.confidence = np.delete(detections.confidence, idx_dismiss)
+    filtered_detections.data['class_name'] = np.delete(detections.data['class_name'], idx_dismiss)
+    filtered_detections.xyxy = np.delete(detections.xyxy, idx_dismiss, axis=0)
+
+    return filtered_detections
+
+
+def callback(image_slice: np.ndarray) -> sv.Detections:
+    result = model.infer(image_slice, confidence=0.005)
+    return sv.Detections.from_inference(result).with_nms(threshold=0.05, class_agnostic=True)
+
+image = cv2.imread(path)
+
+slicer = sv.InferenceSlicer(callback = callback, slice_wh=(image.shape[0]//1, image.shape[1]//1), overlap_ratio_wh=(0.2,0.2))
+
+# results = model.infer(image, confidence=0.005)
+# detections = sv.Detections.from_inference(results).with_nms(threshold=0.05, class_agnostic=True)
+detections = slicer(image)
+
+detections = filter_detections(detections=detections)
 
 BOUNDING_BOX_ANNOTATOR = sv.BoundingBoxAnnotator(thickness=2)
 LABEL_ANNOTATOR = sv.LabelAnnotator(text_thickness=1, text_scale=1, text_color=sv.Color.BLACK)
@@ -64,7 +80,6 @@ annotated_image = LABEL_ANNOTATOR.annotate(annotated_image, detections)
 sv.plot_image(annotated_image, (20, 20))
 
 
-# second iteration
 Bbox = detections.xyxy
 
 
@@ -76,13 +91,32 @@ x, y, w, h = x1, y1, x2 - x1, y2 - y1
 cropped_image = image[y:y + h, x:x + w]
 sv.plot_image(cropped_image, (20, 20))
 
+####################################
+# refine button
+####################################
+# classes = ["button"]
+#
+# model.set_classes(classes)
+# results = model.infer(cropped_image, confidence=0.001)
+# detections = sv.Detections.from_inference(results).with_nms(threshold=0.05, class_agnostic=True)
+#
+# annotated_image = cropped_image.copy()
+# annotated_image = BOUNDING_BOX_ANNOTATOR.annotate(annotated_image, detections)
+# annotated_image = LABEL_ANNOTATOR.annotate(annotated_image, detections)
+# sv.plot_image(annotated_image, (20, 20))
+#
+#
+# a = 2
+
+
 processor_llava = LlavaNextProcessor.from_pretrained("llava-hf/llava-v1.6-mistral-7b-hf")
 model_llava = LlavaNextForConditionalGeneration.from_pretrained("llava-hf/llava-v1.6-mistral-7b-hf", torch_dtype=torch.float16, low_cpu_mem_usage=True)
 model_llava.to("cuda:0")
 
-affordance_classes = {0: "PUSH",
-                      1: "ROTATING",
-                      2: "something else"}
+affordance_classes = {0: "SINGLE PUSH",
+                      1: "DOUBLE PUSH",
+                      2: "ROTATING",
+                      3: "something else"}
 
 
 def compute_affordance_VLM_GPT4(cropped_image, affordance_classes, model):
@@ -107,7 +141,11 @@ def compute_affordance_VLM_GPT4(cropped_image, affordance_classes, model):
     image_bytes = buffer.read()
     base64_image = base64.b64encode(image_bytes).decode('utf-8')
 
+<<<<<<< HEAD
     api_key = "..."
+=======
+    api_key = "..." # fill in api key
+>>>>>>> 0bd7598... some experimenting for gpt4
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {api_key}"
@@ -144,8 +182,6 @@ def compute_affordance_VLM_GPT4(cropped_image, affordance_classes, model):
         print("Error:", response.status_code)
 
     return affordance_key
-
-
 def compute_affordance_VLM_llava(cropped_image, affordance_classes, model, processor):
 
     prmpt = f"<|im_start|>system\nAnswer the questions.<|im_end|><|im_start|>user\n<image>\nIs this "
@@ -165,8 +201,8 @@ def compute_affordance_VLM_llava(cropped_image, affordance_classes, model, proce
     return affordance_key
 
 
-# affordance_gemini = compute_affordance_VLM_llava(cropped_image=cropped_image, affordance_classes=affordance_classes, model=model_llava, processor=processor_llava)
-affordance_gpt4 = compute_affordance_VLM_GPT4(cropped_image=cropped_image, affordance_classes=affordance_classes, model=model)
+# affordance_llava = compute_affordance_VLM_llava(cropped_image=cropped_image, affordance_classes=affordance_classes, model=model_llava, processor=processor_llava)
+# affordance_gpt4 = compute_affordance_VLM_GPT4(cropped_image=cropped_image, affordance_classes=affordance_classes, model=model)
 
 
 
