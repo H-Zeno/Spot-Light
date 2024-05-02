@@ -30,12 +30,12 @@ classes = ["round light switch",
            "car",
            "horse"]
 
-path = "/home/cvg-robotics/tim_ws/YOLO-World/data/switches/img_closeup_3.png"
+path = "/home/cvg-robotics/tim_ws/data/switches/img_closeup_3.png"
 
 model = YOLOWorld(model_id="yolo_world/l")
 model.set_classes(classes)
 
-def filter_detections(detections):
+def _filter_detections(detections):
 
     squaredness = (np.minimum(detections.xyxy[:,2] -detections.xyxy[:,0], detections.xyxy[:,3] -detections.xyxy[:,1])/
                    np.maximum(detections.xyxy[:,2] -detections.xyxy[:,0], detections.xyxy[:,3] -detections.xyxy[:,1]))
@@ -51,19 +51,19 @@ def filter_detections(detections):
     return filtered_detections
 
 
-def callback(image_slice: np.ndarray) -> sv.Detections:
+def _callback(image_slice: np.ndarray) -> sv.Detections:
     result = model.infer(image_slice, confidence=0.005)
     return sv.Detections.from_inference(result).with_nms(threshold=0.05, class_agnostic=True)
 
 image = cv2.imread(path)
 
-slicer = sv.InferenceSlicer(callback = callback, slice_wh=(image.shape[0]//1, image.shape[1]//1), overlap_ratio_wh=(0.2,0.2))
+slicer = sv.InferenceSlicer(callback = _callback, slice_wh=(image.shape[0]//1, image.shape[1]//1), overlap_ratio_wh=(0.2,0.2))
 
 # results = model.infer(image, confidence=0.005)
 # detections = sv.Detections.from_inference(results).with_nms(threshold=0.05, class_agnostic=True)
 detections = slicer(image)
 
-detections = filter_detections(detections=detections)
+detections = _filter_detections(detections=detections)
 
 BOUNDING_BOX_ANNOTATOR = sv.BoundingBoxAnnotator(thickness=2)
 LABEL_ANNOTATOR = sv.LabelAnnotator(text_thickness=1, text_scale=1, text_color=sv.Color.BLACK)
@@ -109,6 +109,8 @@ sv.plot_image(cropped_image, (20, 20))
 # a = 2
 
 
+
+
 processor_llava = LlavaNextProcessor.from_pretrained("llava-hf/llava-v1.6-mistral-7b-hf")
 model_llava = LlavaNextForConditionalGeneration.from_pretrained("llava-hf/llava-v1.6-mistral-7b-hf", torch_dtype=torch.float16, low_cpu_mem_usage=True)
 model_llava.to("cuda:0")
@@ -119,7 +121,7 @@ affordance_classes = {0: "SINGLE PUSH",
                       3: "something else"}
 
 
-def compute_affordance_VLM_GPT4(cropped_image, affordance_classes, model):
+def compute_affordance_VLM_GPT4(cropped_image, affordance_classes):
 
     # build prompt
     prmpt = "Is this "
@@ -201,8 +203,8 @@ def compute_affordance_VLM_llava(cropped_image, affordance_classes, model, proce
     return affordance_key
 
 
-# affordance_llava = compute_affordance_VLM_llava(cropped_image=cropped_image, affordance_classes=affordance_classes, model=model_llava, processor=processor_llava)
-# affordance_gpt4 = compute_affordance_VLM_GPT4(cropped_image=cropped_image, affordance_classes=affordance_classes, model=model)
+affordance_llava = compute_affordance_VLM_llava(cropped_image=cropped_image, affordance_classes=affordance_classes, model=model_llava, processor=processor_llava)
+# affordance_gpt4 = compute_affordance_VLM_GPT4(cropped_image=cropped_image, affordance_classes=affordance_classes)
 
 
 

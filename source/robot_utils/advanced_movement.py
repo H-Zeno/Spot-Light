@@ -742,24 +742,100 @@ def pull_swing_trajectory_test(
     return pose
 
 
+def push_light_switch(
+    start_pose: Pose3D,
+    frame_name: str,
+    stiffness_diag: list[int] | None = None,
+    damping_diag: list[float] | None = None,
+    forces: list[float] | None = None,
+    follow_arm: bool = False,
+    timeout: float = 6.0,
+) -> (Pose3D, Pose3D):
+    """
+    Executes a pushing motion for buttons
+    :param pose: pose of button in 3D space
+    :param start_distance: how far from the button to start push
+    :param frame_name:
+    :param sleep: whether to sleep in between motions for safety
+    """
+    # assert len(stiffness_diag) == 6
+    if stiffness_diag is None:
+        stiffness_diag = [200, 500, 500, 60, 60, 60]
+    # assert len(damping_diag) == 6
+    if damping_diag is None:
+        damping_diag = [2.5, 2.5, 2.5, 1.0, 1.0, 1.0]
+    # assert len(forces) == 6
+    if forces is None:
+        forces = [0, 0, 0, 0, 0, 0]
 
-    a = 2
+    keywords = {
+        "stiffness_diag": stiffness_diag,
+        "damping_diag": damping_diag,
+        "forces": forces,
+        "follow_arm": follow_arm,
+        "timeout": timeout,
+    }
 
-    # pull_start = frame_transformer.get_hand_position_in_frame(
-    #     frame_name, in_common_pose=True)
-    #
-    # # run swing trajectory
-    # for arm_pose in trajectory:
-    #     move_arm(arm_pose, frame_name, body_assist=True, **keywords_in)
-    #
-    # pull_end = frame_transformer.get_hand_position_in_frame(
-    #     frame_name, in_common_pose=True
-    # )
-    #
-    # if release_after:
-    #     set_gripper(True)
-    #
-    # return pull_start, pull_end
+    set_gripper(False)
+    move_arm_distanced(start_pose, 0.03, frame_name) # before handle
+
+    move_arm_distanced(start_pose, -0.01, frame_name, **keywords)  # pushing
+
+    move_arm_distanced(start_pose, 0.1, frame_name, **keywords)  # after handle
+
+    return start_pose
+
+def turn_light_switch(
+    start_pose: Pose3D,
+    frame_name: str,
+    stiffness_diag: list[int] | None = None,
+    damping_diag: list[float] | None = None,
+    forces: list[float] | None = None,
+    follow_arm: bool = False,
+    timeout: float = 6.0,
+) -> (Pose3D, Pose3D):
+    """
+    Executes a pushing motion for buttons
+    :param pose: pose of button in 3D space
+    :param start_distance: how far from the button to start push
+    :param frame_name:
+    :param sleep: whether to sleep in between motions for safety
+    """
+    # assert len(stiffness_diag) == 6
+    if stiffness_diag is None:
+        stiffness_diag = [200, 500, 500, 60, 60, 60]
+    # assert len(damping_diag) == 6
+    if damping_diag is None:
+        damping_diag = [2.5, 2.5, 2.5, 1.0, 1.0, 1.0]
+    # assert len(forces) == 6
+    if forces is None:
+        forces = [0, 0, 0, 0, 0, 0]
+
+    keywords = {
+        "stiffness_diag": stiffness_diag,
+        "damping_diag": damping_diag,
+        "forces": forces,
+        "follow_arm": follow_arm,
+        "timeout": timeout,
+    }
+
+    move_arm_distanced(start_pose, 0.03, frame_name) # before handle
+
+    set_gripper(False)
+    move_arm_distanced(start_pose, -0.01, frame_name, **keywords)  # pushing
+    set_gripper(False)
+
+    # turn light switch
+    roll_angle = 70
+    start_pose.set_rot_from_direction(start_pose.direction(), roll=roll_angle, degrees=True)
+    move_arm_distanced(start_pose, 0.0, frame_name, **keywords)  # after handle
+    set_gripper(False)
+
+    # turn light switch
+    roll_angle = 0
+    start_pose.set_rot_from_direction(start_pose.direction(), roll=roll_angle, degrees=True)
+    move_arm_distanced(start_pose, 0.1, frame_name, **keywords)  # after handle
+    set_gripper(False)
 
 
-    a = 2
+    return start_pose
