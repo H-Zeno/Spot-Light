@@ -43,6 +43,15 @@ from utils.singletons import (
     RobotStateClientSingleton,
     WorldObjectClientSingleton,
 )
+
+from utils.pose_utils import (
+    determine_handle_center,
+    find_plane_normal_pose,
+    calculate_handle_poses,
+    cluster_handle_poses,
+    filter_handle_poses,
+    refine_handle_position,
+)
 from utils.zero_shot_object_detection import detect_objects
 
 frame_transformer = FrameTransformerSingleton()
@@ -207,7 +216,6 @@ def calculate_handle_poses(
     """
     Calculates pose and axis of motion of all handles in the image.
     """
-    # todo calculate principle axis of handle if handle is elongated
     centers = []
     drawer_boxes = [match.drawer.bbox for match in matches]
     handle_boxes = [match.handle.bbox for match in matches]

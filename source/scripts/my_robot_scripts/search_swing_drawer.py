@@ -152,7 +152,7 @@ class _StaticSwingDoor(ControlFunction):
         # knob_pose = Pose3D((0.35, 0.9, 0.75)) #high cabinet
         # knob_pose = Pose3D((1.51, -2.45, 0.57))#-2.47 #large cabinet
         # knob_pose = Pose3D((1.51, -2.45, 0.23))  # -2.47 #large cabinet lower rank
-        knob_pose = Pose3D((1.45, -2.35, 0.57)) # large cabinet, +z
+        knob_pose = Pose3D((0.8, 0.9, 0.75))  # large cabinet, +z
         knob_pose.set_rot_from_rpy((0,0,angle), degrees=True)
         # arm_pose.set_rot_from_rpy((0, 0, 180), degrees=True)
         # set_gripper(True)

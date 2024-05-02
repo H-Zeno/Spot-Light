@@ -355,7 +355,7 @@ def search_drawer(
                 in_frame="image", vis_block=False, cut_to_size=False
             )
             predictions = drawer_predict(
-                color_response[0], config, input_format="bgr", vis_block=False
+                color_response[0], config, input_format="bgr", vis_block=True
             )
             handle_detections = [det for det in predictions if det.name == "handle"]
             refined_pose, discarded = refine_handle_position(
