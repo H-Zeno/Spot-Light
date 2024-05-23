@@ -22,7 +22,7 @@ import numpy as np
 import apriltag
 import cv2
 import open3d as o3d
-from bosdyn.api import image_pb2
+from bosdyn.api import image_pb2, gripper_camera_param_pb2
 from bosdyn.api.image_pb2 import ImageCapture, ImageResponse, ImageSource
 from bosdyn.client.frame_helpers import BODY_FRAME_NAME, ODOM_FRAME_NAME, get_a_tform_b
 from bosdyn.client.image import (
@@ -30,6 +30,7 @@ from bosdyn.client.image import (
     build_image_request,
     depth_image_to_pointcloud,
 )
+from bosdyn.client.gripper_camera_param import GripperCameraParamClient
 from bosdyn.client.world_object import WorldObjectClient
 from robot_utils import frame_transformer as ft
 from robot_utils.basic_movements import gaze, set_gripper, stow_arm
@@ -840,3 +841,39 @@ def select_points_from_bounding_box(
             o3d.visualization.draw_geometries([pcd_in, pcd_out])
 
     return pcd_frame, bbox_masks_np
+
+
+def set_gripper_camera_params(resolution: str):
+    """
+    Set the camera parameters for the gripper camera. Many more parameters can be set, but this is a basic example. check out
+    https://github.com/boston-dynamics/spot-sdk/blob/master/python/examples/gripper_camera_params/set_gripper_camera_params.py for all parameters
+    @param resolution: camera resolution
+    @return:
+    """
+    camera_mode = None
+    if resolution == '640x480':
+        camera_mode = gripper_camera_param_pb2.GripperCameraParams.MODE_640_480
+    elif resolution == '1280x720':
+        camera_mode = gripper_camera_param_pb2.GripperCameraParams.MODE_1280_720
+    elif resolution == '1920x1080':
+        camera_mode = gripper_camera_param_pb2.GripperCameraParams.MODE_1920_1080
+    elif resolution == '3840x2160':
+        camera_mode = gripper_camera_param_pb2.GripperCameraParams.MODE_3840_2160
+    elif resolution == '4096x2160':
+        camera_mode = gripper_camera_param_pb2.GripperCameraParams.MODE_4096_2160
+    elif resolution == '4208x3120':
+        camera_mode = gripper_camera_param_pb2.GripperCameraParams.MODE_4208_3120
+    else:
+        raise ValueError(f"Invalid resolution {resolution}")
+
+    params = gripper_camera_param_pb2.GripperCameraParams(
+        camera_mode=camera_mode)
+
+    gripper_camera_param_client = robot.ensure_client(GripperCameraParamClient.default_service_name)
+    request = gripper_camera_param_pb2.GripperCameraParamRequest(params=params)
+    # Send the request
+    response = gripper_camera_param_client.set_camera_params(request)
+    robot.logger.info("Sending gripper param setting request.")
+
+    return response
+
