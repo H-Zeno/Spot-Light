@@ -335,13 +335,13 @@ def push(
     :param frame_name:
     :param sleep: whether to sleep in between motions for safety
     """
-    assert len(stiffness_diag) == 6
+    # assert len(stiffness_diag) == 6
     if stiffness_diag is None:
         stiffness_diag = [200, 500, 500, 60, 60, 60]
-    assert len(damping_diag) == 6
+    # assert len(damping_diag) == 6
     if damping_diag is None:
         damping_diag = [2.5, 2.5, 2.5, 1.0, 1.0, 1.0]
-    assert len(forces) == 6
+    # assert len(forces) == 6
     if forces is None:
         forces = [0, 0, 0, 0, 0, 0]
 
@@ -650,6 +650,7 @@ def pull_swing_trajectory(
 
     if release_after:
         set_gripper(True)
+        move_arm_distanced(pull_end, 0.3, frame_name, follow_arm=follow_arm)
 
     return pull_start, pull_end
 
@@ -776,10 +777,10 @@ def push_light_switch(
         "timeout": timeout,
     }
 
-    set_gripper(False)
-    move_arm_distanced(start_pose, 0.03, frame_name) # before handle
+    set_gripper(True)
+    move_arm_distanced(start_pose, 0.05, frame_name) # before handle
 
-    move_arm_distanced(start_pose, -0.01, frame_name, **keywords)  # pushing
+    move_arm_distanced(start_pose, -0.04, frame_name, **keywords)  # pushing
 
     move_arm_distanced(start_pose, 0.1, frame_name, **keywords)  # after handle
 
@@ -819,23 +820,22 @@ def turn_light_switch(
         "timeout": timeout,
     }
 
-    move_arm_distanced(start_pose, 0.03, frame_name) # before handle
+    move_arm_distanced(start_pose, 0.04, frame_name) # before handle
+    set_gripper(0.4)
 
     set_gripper(False)
-    move_arm_distanced(start_pose, -0.01, frame_name, **keywords)  # pushing
-    set_gripper(False)
+
+    # move_arm_distanced(start_pose, -0.01, frame_name, **keywords)  # pushing
+    # set_gripper(False)
 
     # turn light switch
     roll_angle = 70
     start_pose.set_rot_from_direction(start_pose.direction(), roll=roll_angle, degrees=True)
     move_arm_distanced(start_pose, 0.0, frame_name, **keywords)  # after handle
-    set_gripper(False)
+    set_gripper(True)
 
-    # turn light switch
     roll_angle = 0
     start_pose.set_rot_from_direction(start_pose.direction(), roll=roll_angle, degrees=True)
-    move_arm_distanced(start_pose, 0.1, frame_name, **keywords)  # after handle
-    set_gripper(False)
-
+    move_arm_distanced(start_pose, 0.15, frame_name)
 
     return start_pose
