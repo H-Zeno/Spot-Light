@@ -26,7 +26,7 @@ from utils.singletons import (
     WorldObjectClientSingleton,
 )
 from utils.light_switch_detection import predict_light_switches
-from utils.affordance_detection_light_switch import compute_affordance_VLM_GPT4, compute_affordance_VLM_llava
+from utils.affordance_detection_light_switch import compute_affordance_VLM_GPT4, compute_advanced_affordance_VLM_GPT4
 from bosdyn.api.image_pb2 import ImageResponse
 from utils.object_detetion import BBox, Detection, Match
 from robot_utils.video import frame_coordinate_from_depth_image, select_points_from_bounding_box
@@ -39,6 +39,7 @@ robot = RobotSingleton()
 robot_state_client = RobotStateClientSingleton()
 world_object_client = WorldObjectClientSingleton()
 
+from utils.pose_utils import calculate_light_switch_poses
 
 from utils.pose_utils import (
     determine_handle_center,
@@ -47,6 +48,7 @@ from utils.pose_utils import (
     cluster_handle_poses,
     filter_handle_poses,
     refine_handle_position,
+
 )
 
 AFFORDANCE_CLASSES = {0: "SINGLE PUSH",
@@ -54,62 +56,14 @@ AFFORDANCE_CLASSES = {0: "SINGLE PUSH",
                           2: "ROTATING",
                           3: "something else"}
 
+AFFORDANCE_DICT = {"switch type": ["push button switch", "rotating switch", "none"],
+                       "button count": ["single", "double", "multi", "none"],
+                       "button stacking": ["vertical", "horizontal", "none"]}
+
 API_KEY = "..."
 STAND_DISTANCE = 1.0
-
-def calculate_light_switch_poses(
-    boxes: list[BBox],
-    depth_image_response: (np.ndarray, ImageResponse),
-    frame_name: str,
-) -> list[Pose3D]:
-
-    centers = []
-
-    depth_image, depth_response = depth_image_response
-
-    # # determine center coordinates for all handles
-    for bbox in boxes:
-        center = determine_handle_center(depth_image, bbox)
-        centers.append(center)
-    # if len(centers) == 0:
-    #     return []
-    centers = np.stack(centers, axis=0)
-
-    # use centers to get depth and position of handle in frame coordinates
-    center_coordss = frame_coordinate_from_depth_image(
-        depth_image=depth_image,
-        depth_response=depth_response,
-        pixel_coordinatess=centers,
-        frame_name=frame_name,
-        vis_block=False,
-    ).reshape((-1, 3))
-
-    # select all points within the point cloud that belong to a drawer (not a handle) and determine the planes
-    # the axis of motion is simply the normal of that plane
-    drawer_bbox_pointss = select_points_from_bounding_box(
-        depth_image_response, boxes, frame_name, vis_block=False
-    )
-
-    points_frame = drawer_bbox_pointss[0]
-    drawer_masks = drawer_bbox_pointss[1]
-
-    # we use the current body position to get the normal that points towards the robot, not away
-    current_body = frame_transformer.get_current_body_position_in_frame(
-        frame_name, in_common_pose=True
-    )
-    poses = []
-    for center_coords, bbox_mask in zip(center_coordss, drawer_masks):
-        pose = find_plane_normal_pose(
-            points_frame[bbox_mask],
-            center_coords,
-            current_body,
-            threshold=0.03,
-            min_samples=10,
-            vis_block=False,
-        )
-        poses.append(pose)
-
-    return poses
+GRIPPER_WIDTH = 0.03
+ADVANCED_AFFORDANCE = True
 
 class _Push_Light_Switch(ControlFunction):
     def __call__(
@@ -124,8 +78,8 @@ class _Push_Light_Switch(ControlFunction):
 
 
         # position in front of shelf
-        x, y, angle = 1.3, 1.2, 180 #high cabinet, -z
-        # x, y, angle = 1.1, -1.2, 270  # large cabinet, +z
+        # x, y, angle = 1.3, 1.2, 180 #high cabinet, upper switch batch, close up
+        x, y, angle = 1.5, 1.2, 180  #high cabinet, upper switch batch, far away
 
         pose = Pose2D(np.array([x, y]))
         pose.set_rot_from_angle(angle, degrees=True)
@@ -135,7 +89,8 @@ class _Push_Light_Switch(ControlFunction):
         )
 
         cabinet_pose = Pose3D((0.35, 1.1, 0.70)) #high cabinet
-        # cabinet_pose = Pose3D((0.8, 0.8, 0.75))
+        # cabinet_pose = Pose3D((0.35, 1.1, 0.35))
+
         cabinet_pose.set_rot_from_rpy((0,0,angle), degrees=True)
 
         carry()
@@ -153,31 +108,45 @@ class _Push_Light_Switch(ControlFunction):
 
         boxes = predict_light_switches(color_response[0], vis_block=True)
 
-        poses = calculate_light_switch_poses(boxes, depth_image_response, frame_name)
+        poses = calculate_light_switch_poses(boxes, depth_image_response, frame_name, frame_transformer)
 
         for pose in poses:
             move_body_distanced(pose.to_dimension(2), STAND_DISTANCE, frame_name)
             carry_arm()
             #################################
-            # refine handle position (do above again)
+            # refine handle position
             #################################
-            camera_add_pose_refinement_right = Pose3D((-0.2, -0.05, -0.05))
+            # camera_add_pose_refinement_right = Pose3D((-0.2, -0.05, -0.05))
+            # camera_add_pose_refinement_right.set_rot_from_rpy((0, 10, 15), degrees=True)
+            # camera_add_pose_refinement_left = Pose3D((-0.2, 0.05, -0.05))
+            # camera_add_pose_refinement_left.set_rot_from_rpy((0, 10, -15), degrees=True)
+            # camera_add_pose_refinement_bot = Pose3D((-0.2, -0.0, -0.1))
+            # camera_add_pose_refinement_bot.set_rot_from_rpy((0, -10, 0), degrees=True)
+
+            camera_add_pose_refinement_right = Pose3D((-0.25, -0.05, -0.04))
             camera_add_pose_refinement_right.set_rot_from_rpy((0, 10, 15), degrees=True)
-            camera_add_pose_refinement_left = Pose3D((-0.2, 0.1, -0.05))
+            camera_add_pose_refinement_left = Pose3D((-0.25, 0.05, -0.04))
             camera_add_pose_refinement_left.set_rot_from_rpy((0, 10, -15), degrees=True)
-            camera_add_pose_refinement_bot = Pose3D((-0.2, -0.0, -0.1))
+            camera_add_pose_refinement_bot = Pose3D((-0.25, -0.0, -0.1))
             camera_add_pose_refinement_bot.set_rot_from_rpy((0, -10, 0), degrees=True)
-            ref_add_poses = (camera_add_pose_refinement_right, camera_add_pose_refinement_left, camera_add_pose_refinement_bot)
+            camera_add_pose_refinement_top = Pose3D((-0.25, -0.0, -0.01))
+            camera_add_pose_refinement_top.set_rot_from_rpy((0, 10, 0), degrees=True)
+
+
+            ref_add_poses = (camera_add_pose_refinement_right, camera_add_pose_refinement_left,
+                             camera_add_pose_refinement_bot, camera_add_pose_refinement_top)
 
             refined_poses = []
             for ref_pose in ref_add_poses:
+
+                # handle not finding plane
                 try:
                     move_arm(pose @ ref_pose, frame_name)
                     depth_image_response, color_response = get_camera_rgbd(
                     in_frame="image", vis_block=False, cut_to_size=False
                     )
                     ref_boxes = predict_light_switches(color_response[0], vis_block=True)
-                    refined_posess = calculate_light_switch_poses(ref_boxes, depth_image_response, frame_name)
+                    refined_posess = calculate_light_switch_poses(ref_boxes, depth_image_response, frame_name, frame_transformer)
                     # filter refined poses
                     idx = np.argmin(np.linalg.norm(np.array([refined_pose.coordinates for refined_pose in refined_posess]) - pose.coordinates, axis=1))
                     refined_pose = refined_posess[idx]
@@ -202,58 +171,51 @@ class _Push_Light_Switch(ControlFunction):
                 vis_block=False,
                 cut_to_size=False,
             )
-            boxes = predict_light_switches(color_response[0], vis_block=True)
-            bbox = boxes[0]
-            cropped_image = color_response[0][int(bbox.ymin):int(bbox.ymax), int(bbox.xmin):int(bbox.xmax)]
-            affordance_key = compute_affordance_VLM_GPT4(cropped_image, AFFORDANCE_CLASSES, API_KEY)
+            # handle not finding a bounding box
+            try:
+                boxes = predict_light_switches(color_response[0], vis_block=True)
+                bbox = boxes[0]
+            except:
+                continue
 
-            if affordance_key == 0 or affordance_key == 1:
-                # z offset IFF push button
-                z_offset = 0.04
-                pose_offset = copy.deepcopy(refined_pose)
-                pose_offset.coordinates[2] += z_offset
-                push_light_switch(pose_offset, frame_name)
-            elif affordance_key == 2:
-                turn_light_switch(refined_pose, frame_name)
+            cropped_image = color_response[0][int(bbox.ymin):int(bbox.ymax), int(bbox.xmin):int(bbox.xmax)]
+
+            if ADVANCED_AFFORDANCE:
+                # calculate advanced affordance (push, turn, double push)
+                affordance_dict = compute_advanced_affordance_VLM_GPT4(cropped_image, AFFORDANCE_DICT, API_KEY)
+                if affordance_dict["switch type"] == "rotating switch":
+                    turn_light_switch(refined_pose, frame_name)
+                elif affordance_dict["switch type"] == "push button switch" and affordance_dict["button count"] == "single":
+                    push_light_switch(refined_pose, frame_name, z_offset=True)
+                elif affordance_dict["switch type"] == "push button switch" and affordance_dict["button count"] == "double":
+                    if affordance_dict["button stacking"] == "horizontal":
+                        offsets = [GRIPPER_WIDTH//2, -GRIPPER_WIDTH//2]
+                        for offset in offsets:
+                            pose_offset = copy.deepcopy(refined_pose)
+                            pose_offset.coordinates[1] += offset
+                            push_light_switch(pose_offset, frame_name, z_offset=True)
+                else:
+                    print("THATS NOT A LIGHT SWITCH!")
             else:
-                print("Something else")
+                # calculate only simple affordance (push, turn)
+                affordance_key = compute_affordance_VLM_GPT4(cropped_image, AFFORDANCE_CLASSES, API_KEY)
+                if affordance_key == 0 or affordance_key == 1:
+                    # z offset IFF push button
+                    z_offset = 0.04
+                    pose_offset = copy.deepcopy(refined_pose)
+                    pose_offset.coordinates[2] += z_offset
+                    push_light_switch(pose_offset, frame_name)
+                elif affordance_key == 2:
+                    turn_light_switch(refined_pose, frame_name)
+                else:
+                    print("Something else")
 
             stow_arm()
 
 
             a = 2
 
-        # predict affordance from bounding boxes
-        affordance_keys = []
-        # for bbox in boxes:
-        #     cropped_image = color_response[0][int(bbox.ymin):int(bbox.ymax), int(bbox.xmin):int(bbox.xmax)]
-        #     affordance_keys.append(compute_affordance_VLM_GPT4(cropped_image, AFFORDANCE_CLASSES, API_KEY))
-        #     # affordance_keys.append(compute_affordance_VLM_llava(cropped_image, AFFORDANCE_CLASSES))
-        #
-        #     carry()
-
-        # for idx, affordance_key in enumerate(affordance_keys):
-        #
-        #     body_pose = pose_distanced(poses[idx], STAND_DISTANCE).to_dimension(2)
-        #     move_body(body_pose, frame_name)
-        #
-        #     a = 2
-        #     if affordance_key == 0:
-        #         push_light_switch(poses[idx], frame_name)
-        #     elif affordance_key == 1:
-        #         push_light_switch(poses[idx], frame_name)
-        #     elif affordance_key == 2:
-        #         turn_light_switch(poses[idx], frame_name)
-        #     else:
-        #         print("Something else")
-
-
         stow_arm()
-        #################################
-        #
-        #DBUGGING
-        #
-        #################################
 
         return frame_name
 
