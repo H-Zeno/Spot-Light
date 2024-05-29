@@ -195,7 +195,7 @@ def calculate_swing_params(
                                                                 depth_response=depth_response,
                                                                 pixel_coordinatess=pixel_coord_lever,
                                                                 frame_name=frame_name,
-                                                                vis_block=True,
+                                                                vis_block=False,
                                                                 ).reshape((-1, 3))
 
         if handle_center[0] > drawer_center[0]:
@@ -424,7 +424,7 @@ class _DynamicSwingDoor(ControlFunction):
         positive_rotation = False
 
         # position in front of shelf
-        x, y, angle = 2.2, -1.0, 250 # large cabinet, +z
+        x, y, angle = 1.2, -1.0, 270 # large cabinet, +z
         # x, y, angle = 1.1, -1.2, 270  # large cabinet, +z
 
         pose = Pose2D(np.array([x, y]))
@@ -436,7 +436,7 @@ class _DynamicSwingDoor(ControlFunction):
 
         # set initial arm coords
         # ground truth coord of handle
-        cabinet_pose = Pose3D((1.90, -2.4, 0.20))
+        cabinet_pose = Pose3D((1.20, -2.5, 0.55))
         # cabinet_pose = Pose3D((1.35, -2.45, 0.61)) # large cabinet, +z
         cabinet_pose.set_rot_from_rpy((0,0,angle), degrees=True)
         # carry()
@@ -494,7 +494,7 @@ class _DynamicSwingDoor(ControlFunction):
             for ref_pose in ref_add_poses:
                 move_arm(handle_pose @ ref_pose, frame_name)
                 depth_response, color_response = get_camera_rgbd(
-                    in_frame="image", vis_block=True, cut_to_size=False
+                    in_frame="image", vis_block=False, cut_to_size=False
                 )
                 predictions = drawer_predict(
                     color_response[0], config, input_format="bgr", vis_block=True
