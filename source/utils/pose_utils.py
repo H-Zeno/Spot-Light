@@ -15,6 +15,8 @@ from utils.camera_geometry import plane_fitting_open3d
 from utils.coordinates import Pose2D, Pose3D, average_pose3Ds, pose_distanced
 from utils.object_detetion import BBox, Detection, Match
 
+
+
 STAND_DISTANCE = 1.0
 STIFFNESS_DIAG1 = [200, 500, 500, 60, 60, 45]
 STIFFNESS_DIAG2 = [100, 0, 0, 60, 30, 30]
@@ -128,8 +130,60 @@ def calculate_handle_poses(
 
     return poses
 
-def calculate_light_switch_poses():
-    pass
+def calculate_light_switch_poses(
+    boxes: list[BBox],
+    depth_image_response: (np.ndarray, ImageResponse),
+    frame_name: str,
+    frame_transformer,
+) -> list[Pose3D]:
+
+    centers = []
+
+    depth_image, depth_response = depth_image_response
+
+    # # determine center coordinates for all handles
+    for bbox in boxes:
+        center = determine_handle_center(depth_image, bbox)
+        centers.append(center)
+    # if len(centers) == 0:
+    #     return []
+    centers = np.stack(centers, axis=0)
+
+    # use centers to get depth and position of handle in frame coordinates
+    center_coordss = frame_coordinate_from_depth_image(
+        depth_image=depth_image,
+        depth_response=depth_response,
+        pixel_coordinatess=centers,
+        frame_name=frame_name,
+        vis_block=False,
+    ).reshape((-1, 3))
+
+    # select all points within the point cloud that belong to a drawer (not a handle) and determine the planes
+    # the axis of motion is simply the normal of that plane
+    drawer_bbox_pointss = select_points_from_bounding_box(
+        depth_image_response, boxes, frame_name, vis_block=False
+    )
+
+    points_frame = drawer_bbox_pointss[0]
+    drawer_masks = drawer_bbox_pointss[1]
+
+    # we use the current body position to get the normal that points towards the robot, not away
+    current_body = frame_transformer.get_current_body_position_in_frame(
+        frame_name, in_common_pose=True
+    )
+    poses = []
+    for center_coords, bbox_mask in zip(center_coordss, drawer_masks):
+        pose = find_plane_normal_pose(
+            points_frame[bbox_mask],
+            center_coords,
+            current_body,
+            threshold=0.03,
+            min_samples=10,
+            vis_block=False,
+        )
+        poses.append(pose)
+
+    return poses
 
 def cluster_handle_poses(
     handles_posess: list[list[Pose3D]],
