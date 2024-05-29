@@ -750,6 +750,7 @@ def push_light_switch(
     damping_diag: list[float] | None = None,
     forces: list[float] | None = None,
     follow_arm: bool = False,
+    z_offset: bool = False,
     timeout: float = 6.0,
 ) -> (Pose3D, Pose3D):
     """
@@ -778,6 +779,10 @@ def push_light_switch(
     }
 
     set_gripper(True)
+    if z_offset:
+        offset = 0.04
+        start_pose.coordinates[2] += offset
+
     move_arm_distanced(start_pose, 0.05, frame_name) # before handle
 
     move_arm_distanced(start_pose, -0.04, frame_name, **keywords)  # pushing
@@ -820,7 +825,7 @@ def turn_light_switch(
         "timeout": timeout,
     }
 
-    move_arm_distanced(start_pose, 0.04, frame_name) # before handle
+    move_arm_distanced(start_pose, 0.05, frame_name) # before handle
     set_gripper(0.4)
 
     set_gripper(False)
