@@ -780,14 +780,14 @@ def push_light_switch(
 
     set_gripper(True)
     if z_offset:
-        offset = 0.04
+        offset = 0.045
         start_pose.coordinates[2] += offset
 
     move_arm_distanced(start_pose, 0.05, frame_name) # before handle
 
     move_arm_distanced(start_pose, -0.04, frame_name, **keywords)  # pushing
 
-    move_arm_distanced(start_pose, 0.1, frame_name, **keywords)  # after handle
+    move_arm_distanced(start_pose, 0.1, frame_name)  # after handle **keywords
 
     return start_pose
 
