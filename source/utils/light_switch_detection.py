@@ -7,8 +7,9 @@ import cv2
 import matplotlib.pyplot as plt
 from source.utils.object_detetion import BBox
 
-def _filter_detections(detections):
+def _filter_detections_YOLOWorld(detections):
 
+    # squaredness filter
     squaredness = (np.minimum(detections.xyxy[:,2] -detections.xyxy[:,0], detections.xyxy[:,3] -detections.xyxy[:,1])/
                    np.maximum(detections.xyxy[:,2] -detections.xyxy[:,0], detections.xyxy[:,3] -detections.xyxy[:,1]))
 
@@ -27,12 +28,18 @@ def filter_detections_ultralytics(detections):
     detections = detections[0].cpu()
     xyxy = detections.boxes.xyxy.numpy()
 
+    # filter squaredness outliers
     squaredness = (np.minimum(xyxy[:, 2] - xyxy[:, 0],
                               xyxy[:, 3] - xyxy[:, 1]) /
                    np.maximum(xyxy[:, 2] - xyxy[:, 0],
                               xyxy[:, 3] - xyxy[:, 1]))
 
-    idx_keep = np.where(squaredness > 0.8)[0]
+    #filter area outliers
+    areas = (xyxy[:, 2] - xyxy[:, 0]) * (xyxy[:, 3] - xyxy[:, 1])
+
+    # todo filter bounding boxes inside of larger bounding boxes
+
+    idx_keep = np.where(np.logical_and(areas < 2*np.median(areas), squaredness > 0.88))[0]
 
     bbox = xyxy[idx_keep,:]
 
@@ -63,7 +70,7 @@ def predict_light_switches(image: np.ndarray, model_type: str = "yolov9c", vis_b
                                     overlap_ratio_wh=(0.2, 0.2))
 
         detections = slicer(image)
-        detections = _filter_detections(detections=detections)
+        detections = _filter_detections_YOLOWorld(detections=detections)
 
         BOUNDING_BOX_ANNOTATOR = sv.BoundingBoxAnnotator(thickness=2, color=sv.Color.RED)
         LABEL_ANNOTATOR = sv.LabelAnnotator(text_thickness=1, text_scale=1, text_color=sv.Color.BLACK)
@@ -84,7 +91,6 @@ def predict_light_switches(image: np.ndarray, model_type: str = "yolov9c", vis_b
         boxes = filter_detections_ultralytics(detections=results_predict)
 
         if vis_block:
-            cv2.namedWindow("image", cv2.WINDOW_NORMAL)
             canv = image.copy()
             for box in boxes:
                 xB = int(box[2])
