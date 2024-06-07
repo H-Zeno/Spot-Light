@@ -58,7 +58,7 @@ class _DynamicDrawers(ControlFunction):
     ) -> str:
         config = recursive_config.Config()
 
-        frame_name = localize_from_images(config)
+        frame_name = localize_from_images(config, vis_block=False)
         start_pose = frame_transformer.get_current_body_position_in_frame(
             frame_name, in_common_pose=True
         )
@@ -73,10 +73,10 @@ class _DynamicDrawers(ControlFunction):
         time.sleep(1)
 
         handle_poses = [
-            Pose3D((0.12, -1.34, 0.54)),
-            Pose3D((0.12, -1.35, 0.34)),
-            Pose3D((0.12, -1.32, 0.14)),
-            Pose3D((0.12, -0.96, 0.54)),
+            Pose3D((0.02, -1.36, 0.41)),
+            Pose3D((0.02, -1.36, 0.21)),
+            Pose3D((0.02, -1.36, 0.01)),
+            Pose3D((0.02, -0.98, 0.41)),
         ]
         for handle_pose in handle_poses:
             handle_pose.rot_matrix = Rotation.from_euler(
