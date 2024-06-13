@@ -13,6 +13,7 @@ from robot_utils.video import (
     get_rgb_pictures,
     localize_from_images,
     relocalize,
+    set_gripper_camera_params
 )
 from scipy.spatial.transform import Rotation
 from utils import recursive_config
@@ -45,7 +46,7 @@ CAMERA_ADD_COORDS = (-0.25, 0, 0.3)
 CAMERA_ANGLE = 55
 SPLIT_THRESH = 1.0
 MIN_PAIRWISE_DRAWER_DISTANCE = 0.1
-ITEMS = ["scissors"]
+ITEMS = ["keys"]
 
 
 class _DynamicDrawers(ControlFunction):
