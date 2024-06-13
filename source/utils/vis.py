@@ -110,9 +110,9 @@ def draw_boxes(image: np.ndarray, detections: list[Detection]) -> None:
         w, h = xmax - xmin, ymax - ymin
         color = colors[names_dict[name]]
         ax.add_patch(
-            plt.Rectangle((xmin, ymin), w, h, fill=False, color=color, linewidth=6)
+            plt.Rectangle((xmin, ymin+h), w, h, fill=False, color=color, linewidth=6)
         )
         text = f"{name}: {conf:0.2f}"
-        ax.text(xmin, ymin, text, fontsize=15, bbox=dict(facecolor="yellow", alpha=0.5))
+        ax.text(xmin, ymin+h, text, fontsize=15, bbox=dict(facecolor="yellow", alpha=0.5))
     plt.axis("off")
     plt.show()
