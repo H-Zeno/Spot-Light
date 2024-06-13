@@ -155,6 +155,10 @@ def stow_arm(gripper_open: bool = False) -> None:
 
 def set_gripper(
     gripper_open: bool | float,
+    max_acc = None,
+    max_vel = None,
+    disable_force_on_contact = False,
+    max_torque = None
 ):
     """
     Set the gripper openness.
@@ -169,7 +173,11 @@ def set_gripper(
         fraction = gripper_open
     assert 0.0 <= fraction <= 1.0
 
-    gripper_command = RobotCommandBuilder.claw_gripper_open_fraction_command(fraction)
+    gripper_command = RobotCommandBuilder.claw_gripper_open_fraction_command(open_fraction=fraction,
+                                                                             max_acc=max_acc,
+                                                                             max_vel=max_vel,
+                                                                             disable_force_on_contact=disable_force_on_contact,
+                                                                             max_torque=max_torque)
 
     # Send the request
     _ = robot_command_client.robot_command(gripper_command)
