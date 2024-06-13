@@ -76,9 +76,10 @@ def detect_objects(
 
 
 def main() -> None:
-    url = "http://images.cocodataset.org/val2017/000000039769.jpg"
-    image = Image.open(requests.get(url, stream=True).raw)
-    texts = ["cat", "dog"]
+    # url = "http://images.cocodataset.org/val2017/000000039769.jpg"
+    # image = Image.open(requests.get(url, stream=True).raw)
+    image = cv2.imread("/home/cvg-robotics/tim_ws/IMG_0640_flipped.jpeg")
+    texts = ["book", "keys", "cupboard", "screwdriver"]
     start = time.time_ns()
     detections = detect_objects(np.asarray(image), texts, vis_block=True)
     end = time.time_ns()
