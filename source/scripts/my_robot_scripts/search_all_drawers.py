@@ -248,7 +248,7 @@ def refine_handle_position(
         depth_image_response,
         [handle_bbox, surrounding_bbox],
         frame_name,
-        vis_block=False,
+        vis_block=True,
     )
     surr_only_mask = surr_mask & (~handle_mask)
     current_body = frame_transformer.get_current_body_position_in_frame(
@@ -265,7 +265,7 @@ def refine_handle_position(
         current_body,
         threshold=0.04,
         min_samples=10,
-        vis_block=False,
+        vis_block=True,
     )
     return pose, discarded
 
