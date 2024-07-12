@@ -110,6 +110,25 @@ def draw_boxes(image: np.ndarray, detections: list[Detection]) -> None:
         w, h = xmax - xmin, ymax - ymin
         color = colors[names_dict[name]]
         ax.add_patch(
+            plt.Rectangle((xmin, ymin), w, h, fill=False, color=color, linewidth=6)
+        )
+        text = f"{name}: {conf:0.2f}"
+        ax.text(xmin, ymin, text, fontsize=15, bbox=dict(facecolor="yellow", alpha=0.5))
+    plt.axis("off")
+    plt.show()
+
+def draw_boxes_demo(image: np.ndarray, detections: list[Detection]) -> None:
+    plt.figure(figsize=(16, 10))
+    plt.imshow(image)
+    ax = plt.gca()
+    names = sorted(list(set([det.name for det in detections])))
+    names_dict = {name: i for i, name in enumerate(names)}
+    colors = generate_distinct_colors(len(names_dict))
+
+    for name, conf, (xmin, ymin, xmax, ymax) in detections:
+        w, h = xmax - xmin, ymax - ymin
+        color = colors[names_dict[name]]
+        ax.add_patch(
             plt.Rectangle((xmin, ymin+h), w, h, fill=False, color=color, linewidth=6)
         )
         text = f"{name}: {conf:0.2f}"

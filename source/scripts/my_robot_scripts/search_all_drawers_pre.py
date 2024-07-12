@@ -37,7 +37,7 @@ robot = RobotSingleton()
 robot_state_client = RobotStateClientSingleton()
 world_object_client = WorldObjectClientSingleton()
 
-STAND_DISTANCE = 1.0
+STAND_DISTANCE = 1.0 #1.0
 STIFFNESS_DIAG1 = [200, 500, 500, 60, 60, 45]
 STIFFNESS_DIAG2 = [100, 0, 0, 60, 30, 30]
 DAMPING_DIAG = [2.5, 2.5, 2.5, 1.0, 1.0, 1.0]
@@ -46,7 +46,7 @@ CAMERA_ADD_COORDS = (-0.25, 0, 0.3)
 CAMERA_ANGLE = 55
 SPLIT_THRESH = 1.0
 MIN_PAIRWISE_DRAWER_DISTANCE = 0.1
-ITEMS = ["keys"]
+ITEMS = ["screwdriver"]
 
 
 class _DynamicDrawers(ControlFunction):
@@ -74,10 +74,10 @@ class _DynamicDrawers(ControlFunction):
         time.sleep(1)
 
         handle_poses = [
-            Pose3D((0.02, -1.36, 0.41)),
-            Pose3D((0.02, -1.36, 0.21)),
-            Pose3D((0.02, -1.36, 0.01)),
-            Pose3D((0.02, -0.98, 0.41)),
+            Pose3D((-0.03, -1.52, 0.3)),
+            Pose3D((-0.03, -1.12, 0.3)),
+            Pose3D((-0.03, -1.525, 0.11)),
+            Pose3D((-0.03, -1.5, -0.08)),
         ]
         for handle_pose in handle_poses:
             handle_pose.rot_matrix = Rotation.from_euler(
@@ -137,7 +137,7 @@ class _DynamicDrawers(ControlFunction):
                 start_pose=pull_end,
                 end_pose=pull_start,
                 start_distance=0.1,
-                end_distance=-0.05,
+                end_distance=-0.07,
                 frame_name=frame_name,
                 stiffness_diag=STIFFNESS_DIAG1,
                 damping_diag=DAMPING_DIAG,
@@ -145,6 +145,7 @@ class _DynamicDrawers(ControlFunction):
                 follow_arm=False,
             )
             move_arm(pull_end, frame_name)
+            stow_arm()
             if item_detected:
                 break
 

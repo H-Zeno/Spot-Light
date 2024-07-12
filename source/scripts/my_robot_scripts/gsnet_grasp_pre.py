@@ -48,16 +48,16 @@ class _BetterGrasp(ControlFunction):
         # ITEM = "poro plushy"
 
         if ITEM == "green watering can":
-            grasp_coords = (0.9, -2.31, 0.18)
+            grasp_coords = (0.222020, -2.652887, -0.037905)
             grasp_rot = np.asarray(
                 [
-                    [-0.031653, -0.408079, -0.912398],
-                    [0.014664, -0.912947, 0.407815],
-                    [-0.999391, -0.000471, 0.034882]
+                    [-0.253672, 0.672679, 0.695092],
+                     [0.060881, 0.728276, -0.682575],
+                     [-0.965372, -0.130832, -0.225697]
 
                 ]
             )
-            body_pose_distanced = Pose3D((1.38, -1.81, 0.18))
+            body_pose_distanced = Pose3D((0.777616, -2.111068, 0.365888))
         elif ITEM == "poro plushy":
             grasp_coords = (2.4, -2.5, 0.47)
             grasp_rot = np.asarray(
@@ -122,26 +122,26 @@ class _BetterGrasp(ControlFunction):
         move_body(body_after.to_dimension(2), frame_name)
         move_body(body_after2.to_dimension(2), frame_name)
 
-        # time.sleep(5)
-        # set_gripper(True)
-        # time.sleep(2)
+        time.sleep(2)
+        set_gripper(True)
+        time.sleep(2)
 
-        # release
-        #get z coord of grab
-        z_coord = grasp_pose_new.coordinates[-1]
-        pose_hand = frame_transformer.get_hand_position_in_frame(frame_name, in_common_pose=True)
-        pose_hand.coordinates[-1] = z_coord
-
-
-        positional_release(pose=pose_hand,
-                           frame_name=frame_name,
-                           stiffness_diag_in=STIFFNESS_DIAG1,
-                           stiffness_diag_out=STIFFNESS_DIAG2,
-                           damping_diag_in=DAMPING_DIAG,
-                           damping_diag_out=DAMPING_DIAG,
-                           forces=FORCES,
-                           follow_arm=True,
-                           release_after=True)
+        # # release
+        # #get z coord of grab
+        # z_coord = grasp_pose_new.coordinates[-1]
+        # pose_hand = frame_transformer.get_hand_position_in_frame(frame_name, in_common_pose=True)
+        # pose_hand.coordinates[-1] = z_coord
+        #
+        #
+        # positional_release(pose=pose_hand,
+        #                    frame_name=frame_name,
+        #                    stiffness_diag_in=STIFFNESS_DIAG1,
+        #                    stiffness_diag_out=STIFFNESS_DIAG2,
+        #                    damping_diag_in=DAMPING_DIAG,
+        #                    damping_diag_out=DAMPING_DIAG,
+        #                    forces=FORCES,
+        #                    follow_arm=True,
+        #                    release_after=True)
 
         stow_arm()
         return frame_name

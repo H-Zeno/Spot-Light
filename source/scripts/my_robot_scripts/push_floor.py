@@ -37,7 +37,7 @@ class _Push_Floor(ControlFunction):
         *args,
         **kwargs,
     ) -> str:
-        BUTTON_COORDINATES = (0.28, -0.62, -0.16)  # (0.67, -1.52, -0.1)
+        BUTTON_COORDINATES = (0.15, -0.6, -0.36)  # (0.67, -1.52, -0.1)
         RPY = (0, 90, 120)
         STAND_DISTANCE = 0.75
         PUSH_DISTANCES = 0.1, -0.06 #3

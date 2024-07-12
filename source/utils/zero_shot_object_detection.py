@@ -20,7 +20,7 @@ from utils.vis import normalize_image
 _CHECKPOINT = "google/owlv2-base-patch16-ensemble"
 _PROCESSOR = Owlv2Processor.from_pretrained("google/owlv2-base-patch16-ensemble")
 _MODEL = Owlv2ForObjectDetection.from_pretrained("google/owlv2-base-patch16-ensemble")
-_SCORE_THRESH = 0.5
+_SCORE_THRESH = 0.4
 
 
 def detect_objects(
@@ -78,7 +78,7 @@ def detect_objects(
 def main() -> None:
     # url = "http://images.cocodataset.org/val2017/000000039769.jpg"
     # image = Image.open(requests.get(url, stream=True).raw)
-    image = cv2.imread("/home/cvg-robotics/tim_ws/IMG_0640_flipped.jpeg")
+    image = cv2.imread("/home/cvg-robotics/tim_ws/IMG_0641.jpeg")
     texts = ["book", "keys", "cupboard", "screwdriver"]
     start = time.time_ns()
     detections = detect_objects(np.asarray(image), texts, vis_block=True)

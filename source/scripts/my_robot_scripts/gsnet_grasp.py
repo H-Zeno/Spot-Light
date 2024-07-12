@@ -122,7 +122,7 @@ class _BetterGrasp(ControlFunction):
 
         loc_timer_start = time.time_ns()
         logger.log("Starting 3D Instance Segmentation and Object Localization")
-        item_cloud, environment_cloud = get_mask_points(ITEM, config, vis_block=True)
+        item_cloud, environment_cloud = get_mask_points(ITEM, config, idx=1, vis_block=True)
 
         lim_env_cloud = get_radius_env_cloud(item_cloud, environment_cloud, RADIUS)
         logger.log("Ending 3D Instance Segmentation and Object Localization")

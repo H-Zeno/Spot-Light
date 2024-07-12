@@ -447,7 +447,7 @@ class _DynamicDrawers(ControlFunction):
         *args,
         **kwargs,
     ) -> str:
-        indices = (1,)
+        indices = (2,)
         config = recursive_config.Config()
 
         frame_name = localize_from_images(config, vis_block=False)
