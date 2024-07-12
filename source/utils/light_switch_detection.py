@@ -23,28 +23,59 @@ def _filter_detections_YOLOWorld(detections):
 
     return filtered_detections
 
-def filter_detections_ultralytics(detections):
+def filter_detections_ultralytics(detections, filter_squaredness=True, filter_area=True, filter_within=True):
 
     detections = detections[0].cpu()
     xyxy = detections.boxes.xyxy.numpy()
+    indices = np.linspace(0, xyxy.shape[0] - 1, xyxy.shape[0])
 
     # filter squaredness outliers
-    squaredness = (np.minimum(xyxy[:, 2] - xyxy[:, 0],
-                              xyxy[:, 3] - xyxy[:, 1]) /
-                   np.maximum(xyxy[:, 2] - xyxy[:, 0],
-                              xyxy[:, 3] - xyxy[:, 1]))
+    if filter_squaredness:
+        squaredness = (np.minimum(xyxy[:, 2] - xyxy[:, 0],
+                                  xyxy[:, 3] - xyxy[:, 1]) /
+                       np.maximum(xyxy[:, 2] - xyxy[:, 0],
+                                  xyxy[:, 3] - xyxy[:, 1]))
+
+        keep_1 = squaredness > 0.5
+        xyxy = xyxy[keep_1, :]
+
+        # xyxy = xyxy[keep_1, :]
+        # indices = indices[keep_1]
+
+    # squaredness = (np.minimum(xyxy[:, 2] - xyxy[:, 0],
+    #                           xyxy[:, 3] - xyxy[:, 1]) /
+    #                np.maximum(xyxy[:, 2] - xyxy[:, 0],
+    #                           xyxy[:, 3] - xyxy[:, 1]))
 
     #filter area outliers
-    areas = (xyxy[:, 2] - xyxy[:, 0]) * (xyxy[:, 3] - xyxy[:, 1])
+    if filter_area:
+        areas = (xyxy[:, 2] - xyxy[:, 0]) * (xyxy[:, 3] - xyxy[:, 1])
+        keep_2 = areas < 3*np.median(areas)
+        xyxy = xyxy[keep_2, :]
+        # keep_2 = np.logical_and(areas < 3*np.median(areas), squaredness > 0.1)
 
-    # todo filter bounding boxes inside of larger bounding boxes
+    # areas = (xyxy[:, 2] - xyxy[:, 0]) * (xyxy[:, 3] - xyxy[:, 1])
+    # keep_1 = np.logical_and(areas < 3*np.median(areas), squaredness > 0.1)#0.88
 
-    idx_keep = np.where(np.logical_and(areas < 2*np.median(areas), squaredness > 0.88))[0]
+    # filter bounding boxes within larger ones
+    if filter_within:
+        centers = np.array([(xyxy[:, 0] + xyxy[:, 2]) / 2, (xyxy[:, 1] + xyxy[:, 3]) / 2]).T
+        keep_3 = np.ones(xyxy.shape[0], dtype=bool)
+        x_in_box = (xyxy[:, 0:1] <= centers[:, 0]) & (centers[:, 0] <= xyxy[:, 2:3])
+        y_in_box = (xyxy[:, 1:2] <= centers[:, 1]) & (centers[:, 1] <= xyxy[:, 3:4])
+        centers_in_boxes = x_in_box & y_in_box
+        np.fill_diagonal(centers_in_boxes, False)
+        pairs = np.argwhere(centers_in_boxes)
+        idx_remove = pairs[np.where(areas[pairs[:, 0]] - areas[pairs[:, 1]] < 0), 0].flatten()
+        keep_3[idx_remove] = False
+        xyxy = xyxy[keep_3, :]
 
-    bbox = xyxy[idx_keep,:]
+    # merged_keep = np.logical_and(keep_1, keep_2)
 
+    # bbox = xyxy[merged_keep,:]
+    # bbox = xyxy[keep_2, :]
+    bbox = xyxy
     return bbox
-
 
 
 def predict_light_switches(image: np.ndarray, model_type: str = "yolov9c", vis_block: bool = False):
@@ -84,9 +115,9 @@ def predict_light_switches(image: np.ndarray, model_type: str = "yolov9c", vis_b
         return detections
 
     elif model_type == "yolov9c":
-        model = YOLO('/home/cvg-robotics/tim_ws/YOLO-World/runs/detect/train12/weights/best.pt')
-        results_predict = model.predict(source=image, imgsz=1280, conf=0.3, iou=0.4, max_det=8, agnostic_nms=True,
-                                        save=False)  # save plotted images
+        model = YOLO('/home/cvg-robotics/tim_ws/YOLO-World/runs/detect/train27/weights/best.pt')#12, 27
+        results_predict = model.predict(source=image, imgsz=1280, conf=0.15, iou=0.4, max_det=9, agnostic_nms=True,
+                                        save=False)  # save plotted images 0.3
 
         boxes = filter_detections_ultralytics(detections=results_predict)
 
@@ -104,13 +135,13 @@ def predict_light_switches(image: np.ndarray, model_type: str = "yolov9c", vis_b
             for box in boxes:
                 bbs.append(BBox(box[0], box[1], box[2], box[3]))
 
-            plt.imshow(canv)
+            plt.imshow(cv2.cvtColor(canv, cv2.COLOR_BGR2RGB))
             plt.show()
 
         return bbs
 
 if __name__ == "__main__":
-    image = cv2.imread("/home/cvg-robotics/tim_ws/IMG_0519.jpeg")
+    image = cv2.imread("/home/cvg-robotics/tim_ws/IMG_1012.jpeg")
     model_type = "yolov9c"
     detections = predict_light_switches(image, model_type, vis_block=True)
     a = 2
