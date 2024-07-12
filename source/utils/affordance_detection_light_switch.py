@@ -105,7 +105,7 @@ def compute_advanced_affordance_VLM_GPT4(cropped_image: np.ndarray, affordance_d
             prompt += ", "
         else:
             prompt += ". "
-    prompt += f"Format: <{'>, <'.join(list(affordance_dict.keys()))}>. answer all lower case"
+    prompt += f"Format: <{'>, <'.join(list(affordance_dict.keys()))}>. answer all lower case, use no extra characters"
 
     response = GPT4_query(api_key, prompt, cropped_image, max_tokens=50, detail="low")
 
@@ -235,27 +235,26 @@ def compute_affordance_VLM_test(model: str, affordance_classes: Dict[int, str], 
 
 
 if __name__ == "__main__":
-    # affordance_classes = {0: "SINGLE PUSH",
-    #                       1: "DOUBLE PUSH",
-    #                       2: "ROTATING",
-    #                       3: "something else"}
-    # cropped_image = cv2.imread("/home/cvg-robotics/tim_ws/turn_button_spot.png")
-    # affordance_key = compute_affordance_VLM_test(model="GPT4", affordance_classes=affordance_classes, cropped_image=cropped_image)
-    affordance_dict = {"button type": ["push button switch", "rotating switch", "none"],
+
+    affordance_dict = {"button type": ["push button switch", "rotating switch", "toggle switch", "none"],
                        "button count": ["single", "double", "none"],
                        "button position (wrt. other button!)": ["buttons stacked vertically", "buttons side-by-side", "none"],
                        "interaction inference from symbols": ["top/bot push", "left/right push", "center push", "no symbols present"]}
 
-    # affordance_dict = {"horizontal interaction inference": ["centric push", "left/right push", "rotating", "none"],
-    #                    "vertical interaction inference": ["centric push", "top/bot push", "rotating", "none"]}
 
-    cropped_image = cv2.imread("/home/cvg-robotics/tim_ws/GPT4_visuals/push_button.png")
+
+    cropped_image = cv2.imread("/home/cvg-robotics/tim_ws/GPT4_visuals/rocker_switch_2.png")
 
     plt.imshow(cropped_image)
     plt.show()
 
     api_key = "..."
 
-    affordance = compute_advanced_affordance_VLM_GPT4(cropped_image=cropped_image, affordance_dict=affordance_dict, api_key=api_key)
-    print(affordance)
+    # affordance = compute_advanced_affordance_VLM_GPT4(cropped_image=cropped_image, affordance_dict=affordance_dict, api_key=api_key)
+    # print(affordance)
+
+    prompt = "given that you see a light switch, tell me at which pixel locations of the iamge (multiple is possible) the button can be interacted with, and what interaction i have to perform to turn it on. Use the format <x>, <y>, <interaction>"
+
+    ans = GPT4_query(api_key, prompt, cropped_image, max_tokens=50, detail="low")
+
     a = 2
