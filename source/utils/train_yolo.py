@@ -51,7 +51,6 @@ def infer(model, image, vis_block=False):
             probs = result.probs  # Probs object for classification outputs
             obb = result.obb  # Oriented boxes object for OBB outputs
             result.show()  # display to screen
-            result.save(filename='result.jpg')  # save to disk
 
     return results_predict
 
@@ -76,7 +75,7 @@ if __name__ == '__main__':
 
     if mode == "predict":
         image = Image.open("/home/cvg-robotics/tim_ws/IMG_1011.jpeg")
-        model = YOLO("../../weights/train30/weights/best.pt")
+        model = YOLO("../weights/train30/weights/best.pt")
 
         results = infer(model, image, vis_block=True)
         a = 2
