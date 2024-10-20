@@ -7,7 +7,7 @@
 <sup>1</sup>ETH Zurich <sup>2</sup>Microsoft <sup>3</sup>Uni Bonn
 
 
-![teaser](https://github.com/timengelbracht/SpotLight/blob/main/SpotLightLogo.png?raw=true)
+![teaser](https://github.com/timengelbracht/SpotLightWebsite/blob/main/SpotLightLogo.png?raw=true)
 
 
 </div>
