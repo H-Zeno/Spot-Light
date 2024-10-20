@@ -68,24 +68,25 @@ AFFORDANCE_DICT = {"button type": ["push button switch", "rotating switch", "non
                    "interaction inference from symbols": ["top/bot push", "left/right push", "center push", "no symbols present"]}
 
 
-API_KEY = "..."
-STAND_DISTANCE = 1.0
+config = Config()
+API_KEY = config["gpt_api_key"]
+STAND_DISTANCE = 0.9 #1.0
 GRIPPER_WIDTH = 0.03
 GRIPPER_HEIGHT = 0.03
 ADVANCED_AFFORDANCE = True
 FORCES = [8, 0, 0, 0, 0, 0]
-LOGGING_PATH = "/home/cvg-robotics/tim_ws/logging_lightswitch_experiments/"
+LOGGING_PATH = "../../logging_lightswitch_experiments/"
 
 ## TESTING PARAMETERS
-TEST_NUMBER = 5
-RUN =10
-LEVEL = "lower"
+TEST_NUMBER = 8
+RUN =1
+LEVEL = "upper"
 
 
 DETECTION_DISTANCE = 0.75
 X_BODY = 1.6
 Y_BODY = 0.6
-ANGLE_BODY = 170
+ANGLE_BODY = 180
 SHUFFLE = True
 NUM_REFINEMENT_POSES = 4
 NUM_REFINEMENTS_MAX_TRIES = 5
@@ -141,7 +142,15 @@ elif TEST_NUMBER == 6:
 elif TEST_NUMBER == 7:
     NUM_REFINEMENT_POSES = 2
     NUM_REFINEMENTS_MAX_TRIES = 1
-
+elif TEST_NUMBER == 8:
+    NUM_REFINEMENT_POSES = 4
+    NUM_REFINEMENTS_MAX_TRIES = 5
+    BOUNDING_BOX_OPTIMIZATION = True
+    SHUFFLE = False
+    DETECTION_DISTANCE = 0.75
+    X_BODY = 1.4
+    Y_BODY = 0.85
+    ANGLE_BODY = 175
 
 file_path = filename=os.path.join(LOGGING_PATH, f"switches_experiment_{TEST_NUMBER}_LEVEL_{LEVEL}_RUN_{RUN}.log")
 if os.path.exists(file_path):
@@ -175,22 +184,22 @@ def refinement(pose: Pose3D, frame_name: str, bb_optimization: bool = True):
     depth_image_response, color_response = get_camera_rgbd(
         in_frame="image", vis_block=False, cut_to_size=False
     )
+
     ref_boxes = predict_light_switches(color_response[0], vis_block=True)
 
     #################################
-    # test for refined boxes
+    # efined boxes
     #################################
-    a = 2
     if bb_optimization:
         boxes = []
         for ref_box in ref_boxes:
             bb = np.array([ref_box.xmin, ref_box.ymin, ref_box.xmax, ref_box.ymax])
-            bb_refined = refine_bounding_box(color_response[0], bb, vis_block=False)
+            bb_refined = refine_bounding_box(color_response[0], bb, vis_block=True)
             bb_refined = BBox(bb_refined[0], bb_refined[1], bb_refined[2], bb_refined[3])
             boxes.append(bb_refined)
         ref_boxes = boxes
     ###############################
-    # test for refined boxes
+    # efined boxes
     ###############################
 
     refined_posess = calculate_light_switch_poses(ref_boxes, depth_image_response, frame_name, frame_transformer)
@@ -204,13 +213,8 @@ def refinement(pose: Pose3D, frame_name: str, bb_optimization: bool = True):
     else:
         idx = np.argmin(distances)
         refined_pose = refined_posess[idx]
-        # refined_poses.append(refined_pose)
         refined_box = ref_boxes[idx]
-        # refined_boxes.append(bbox)
-        # color_responses.append(color_response[0])
-
         return refined_pose, refined_box, color_response[0]
-
 
 class _Push_Light_Switch(ControlFunction):
     def __call__(
@@ -268,8 +272,6 @@ class _Push_Light_Switch(ControlFunction):
         set_gripper_camera_params('1920x1080')
         time.sleep(1)
         gaze(cabinet_pose, frame_name, gripper_open=True)
-        # move_arm_distanced(cabinet_pose, DETECTION_DISTANCE, frame_name)
-        # move_arm_distanced(cabinet_pose, 0.05, frame_name) # TEST TOGGLE SWITCH
 
         depth_image_response, color_response = get_camera_rgbd(
             in_frame="image",
@@ -293,6 +295,7 @@ class _Push_Light_Switch(ControlFunction):
         end_time_pose_calculation = time.time()
         logging.info(f"Pose calculation time: {end_time_pose_calculation - end_time_detection}")
 
+
         for idx, pose in enumerate(poses):
             pose_start_time = time.time()
             body_add_pose_refinement_right = Pose3D((-STAND_DISTANCE, -0.00, -0.00))
@@ -303,13 +306,12 @@ class _Push_Light_Switch(ControlFunction):
             end_time_move_body = time.time()
             logging.info(f"Move body time: {end_time_move_body - pose_start_time}")
 
-            # move_body_distanced(pose.to_dimension(2), STAND_DISTANCE, frame_name)
             carry_arm()
             #################################
             # refine handle position
             #################################
 
-            x_offset = -0.22 # -0.2
+            x_offset = -0.3 # -0.2
 
             camera_add_pose_refinement_right = Pose3D((x_offset, -0.05, -0.04))
             camera_add_pose_refinement_right.set_rot_from_rpy((0, 0, 0), degrees=True)
@@ -320,9 +322,6 @@ class _Push_Light_Switch(ControlFunction):
             camera_add_pose_refinement_top = Pose3D((x_offset, -0.0, -0.02))
             camera_add_pose_refinement_top.set_rot_from_rpy((0, 0, 0), degrees=True)
 
-
-            # ref_add_poses = [camera_add_pose_refinement_right, camera_add_pose_refinement_left,
-            #                  camera_add_pose_refinement_bot, camera_add_pose_refinement_top]
 
             if NUM_REFINEMENT_POSES == 4:
                 ref_add_poses = [camera_add_pose_refinement_right, camera_add_pose_refinement_left,
@@ -400,8 +399,6 @@ class _Push_Light_Switch(ControlFunction):
                     elif affordance_dict["interaction inference from symbols"] == "no symbols present" or affordance_dict["interaction inference from symbols"] == "center push":
                         offsets.append([0.0, 0.0, 0.0])
                     else:
-                        # affordance = affordance_dict["interaction inference from symbols"]
-                        # raise ValueError(f"AFFORDANCE ERROR: {affordance} NOT EXPECTED")
                         logging.warning(f"AFFORDANCE ERROR: {affordance_dict} NOT EXPECTED")
                         continue
                 elif affordance_dict["button count"] == "double":
@@ -412,15 +409,12 @@ class _Push_Light_Switch(ControlFunction):
                             offsets.append([0.0, -GRIPPER_WIDTH/2, GRIPPER_HEIGHT/2])
                             offsets.append([0.0, -GRIPPER_WIDTH/2, -GRIPPER_HEIGHT/2])
                         elif affordance_dict["interaction inference from symbols"] == "left/right push":
-                            # raise ValueError("AFFORDANCE ERROR: count double, stacking horizontal, left/right push NOT IN TEST SETUP")
                             logging.warning(f"AFFORDANCE ERROR: {affordance_dict} NOT EXPECTED")
                             continue
                         elif affordance_dict["interaction inference from symbols"] == "no symbols present" or affordance_dict["interaction inference from symbols"] == "center push":
                             offsets.append([0.0, GRIPPER_WIDTH/2, 0.0])
                             offsets.append([0.0, -GRIPPER_WIDTH/2, 0.0])
                         else:
-                            # affordance = affordance_dict["interaction inference from symbols"]
-                            # raise ValueError(f"AFFORDANCE ERROR: {affordance} NOT EXPECTED")
                             logging.warning(f"AFFORDANCE ERROR: {affordance_dict} NOT EXPECTED")
                             continue
                     elif affordance_dict["button position (wrt. other button!)"] == "buttons stacked vertically":
@@ -428,17 +422,12 @@ class _Push_Light_Switch(ControlFunction):
                             offsets.append([0.0, 0.0, GRIPPER_HEIGHT/2])
                             offsets.append([0.0, 0.0, -GRIPPER_HEIGHT/2])
                         else:
-                            # affordance = affordance_dict["interaction inference from symbols"]
-                            # raise ValueError(f"AFFORDANCE ERROR: {affordance} NOT EXPECTED")
                             logging.warning(f"AFFORDANCE ERROR: {affordance_dict} NOT EXPECTED")
                             continue
                     elif affordance_dict["button position (wrt. other button!)"] == "none":
-                        # raise ValueError("AFFORDANCE ERROR: count double, stacking none NOT POSSIBLE")
                         logging.warning(f"AFFORDANCE ERROR: {affordance_dict} NOT EXPECTED")
                         continue
                     else:
-                        # affordance = affordance_dict["button position (wrt. other button!)"]
-                        # raise ValueError(f"AFFORDANCE ERROR: {affordance} NOT EXPECTED")
                         logging.warning(f"AFFORDANCE ERROR: {affordance_dict} NOT EXPECTED")
                         continue
                 for offset_coords in offsets:
