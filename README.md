@@ -28,9 +28,10 @@ Spot-Light is a library and framework built on top of the [Spot-Compose reposito
 The dataset used in the paper is available at [Roboflow](https://universe.roboflow.com/timengelbracht/spotlight-light-switch-dataset)
 
 ## Setup Instructions
+Heads up: this setup is a bit involved, since we will explain not only some example code, but also the enttire setup, including acquiring the point clouds, aligning them, setting up the docker tools and scene graphs and so on and so forth. So bear with me here. In case u run into issues, don't hesitate to leave an issue or just send me an email :)
 
-### Define Spot-Light Path
-Set the environment variable `SPOTLIGHT` to the path of the Spot-Light folder. Example:
+### Define SpotLight Path
+Set the environment variable `SPOTLIGHT` to the path of the Spot-Light folder. Just to make sure we're all on the same page ... I mean path ;) Example:
 ```bash
 export SPOTLIGHT=/home/cvg-robotics/tim_ws/Spot-Light/
 ```
@@ -49,6 +50,7 @@ export SPOTLIGHT=/home/cvg-robotics/tim_ws/Spot-Light/
 ---
 
 ## Point Cloud Capturing
+We will need two pint clouds here.
 
 ### Low-Resolution Point Cloud
 1. Position Spot in front of the AprilTag and start the autowalk.
@@ -98,23 +100,23 @@ $SPOTLIGHT/data/aligned_point_clouds
    mkdir Mask3D/checkpoints
    cd Mask3D/checkpoints
    wget "https://zenodo.org/records/10422707/files/mask3d_scannet200_demo.ckpt"
-   cd ..
+   cd ../../..
    ```
 
 2. Run the Mask3D Docker container:
    ```bash
    docker pull rupalsaxena/mask3d_docker:latest
-   docker run --gpus all -it -v $HOME:/home -w $SPOTLIGHT/source/Mask3D rupalsaxena/mask3d_docker:latest
+   docker run --gpus all -it -v /home:/home -w $SPOTLIGHT/source/Mask3D rupalsaxena/mask3d_docker:latest
    ```
 
 3. Inside the container, process the high-resolution point cloud:
    ```bash
    python mask3d.py --seed 42 --workspace $SPOTLIGHT/data/prescans/<high_res_name>
+   chmod -R 777 $SPOTLIGHT/data/prescans/<high_res_name>
    ```
 
 4. Update permissions and move processed files:
    ```bash
-   chmod -R 777 $SPOTLIGHT/data/prescans/<high_res_name>
    cp $SPOTLIGHT/mask3d_label_mapping.csv $SPOTLIGHT/data/prescans/<high_res_name>/mask3d_label_mapping.csv
    cp $SPOTLIGHT/data/aligned_point_clouds/<high_res_name>/pose/icp_tform_ground.txt $SPOTLIGHT/data/prescans/<high_res_name>/icp_tform_ground.txt
    cp $SPOTLIGHT/data/prescans/<high_res_name>/pcd.ply $SPOTLIGHT/data/prescans/<high_res_name>/mesh.ply
@@ -130,7 +132,15 @@ $SPOTLIGHT/data/aligned_point_clouds
 
 Refer to the [Spot-Compose repository](https://github.com/oliver-lemke/spot-compose) documentation for Docker downlaod and setup.
 
+**NOTE** If u plan on using the graspnet Docker, make sure to run this one first, and the other containers afterwards! Othwerwise the container won't work...No idea why
+
 ---
+
+## Update python path
+Just to make sure we don't run into pathing/ import issues
+```bash
+export PYTHONPATH=$SPOTLIGHT:$SPOTLIGHT/source:\$PYTHONPATH
+```
 
 ## Extracting OpenMask Features
 
@@ -163,12 +173,14 @@ api:
 
 This is an over view for workstation networking. Again, this information can also be found in the [Spot-Compose repository](https://github.com/oliver-lemke/spot-compose).
 
-On the workstation run $SPOTLIGHT/shells/ubuntu_routing.sh (or $SPOTLIGHT/shells/mac_routing.sh depending on your workstation operating system).
-
-For this zou are running only a single line of code:
+On the workstation run 
 ```bash
-sudo ip route add 192.168.50.0/24 via <local NUC IP>
+   $SPOTLIGHT/shells/ubuntu_routing.sh
 ```
+(or $SPOTLIGHT/shells/mac_routing.sh depending on your workstation operating system).
+
+**Short Explanation for the curious**: This shell script has only a single line of code: sudo ip route add 192.168.50.0/24 via <local NUC IP>
+
 In this command:
 
     192.168.50.0/24 represents the subnet for Spot.
