@@ -212,6 +212,18 @@ python3 -m source/scripts/my_robot_scripts/search_swing_drawer_dynamic.py
 ```
 
 ---
+# BibTeX :pray:
+```
+@misc{engelbracht2024spotlightroboticsceneunderstanding,
+      title={SpotLight: Robotic Scene Understanding through Interaction and Affordance Detection}, 
+      author={Tim Engelbracht and René Zurbrügg and Marc Pollefeys and Hermann Blum and Zuria Bauer},
+      year={2024},
+      eprint={2409.11870},
+      archivePrefix={arXiv},
+      primaryClass={cs.RO},
+      url={https://arxiv.org/abs/2409.11870}, 
+}
+```
 
 ## License
 This project is licensed under the MIT License.
