@@ -617,6 +617,101 @@ def localize_from_images(config: Config, vis_block: bool = True) -> str:
     return frame_name
 
 
+def localize_from_images_only_fiducial(config: Config, vis_block: bool = True) -> str:
+    """
+    Localize the robot from camera images and depth scans of the surrounding environment.
+    :param config:
+    :param vis_block: whether to visualize the ICP part of the localization
+    """
+    """
+    The idea is based on localization with fiducials and fine-tuning. Namely, we
+    (1) first get an initial localization via the fiducials in the environment
+    (2) then scan a point cloud of the surrounding environment
+    (2) transform it to the fiducial frame based on its localization ("prediction")
+    """
+    # get images from all robot cameras
+    global image_client
+    image_client.set_instance(robot.ensure_client(ImageClient.default_service_name))
+    # create frame frame_transformer object
+    global world_object_client
+    world_object_client.set_instance(
+        robot.ensure_client(WorldObjectClient.default_service_name)
+    )
+    global frame_transformer
+    frame_transformer.set_instance(ft.FrameTransformer())
+    frame_name = ft.VISUAL_SEED_FRAME_NAME
+
+    # create the apriltag (fiducial) detector
+    tag_id = config["pre_scanned_graphs"]["base_fiducial_id"]
+    options = apriltag.DetectorOptions(
+        families="tag36h11", refine_pose=True, refine_edges=True, refine_decode=True
+    )
+    detector = apriltag.Detector(options)
+
+    set_gripper(True)
+    image_tuples_color = get_all_images_greyscale(auto_rotate=False)
+    image_tuples_depth = get_all_images_depth(auto_rotate=False)
+
+    fiducial_tform_body_init = detect_best_apriltag(
+        tag_id, image_tuples_color, image_tuples_depth, detector, vis_block=vis_block
+    )
+    likely_tag_pose = Pose3D.from_matrix(fiducial_tform_body_init).inverse()
+
+    # set gripper to open to capture images from that camera as well
+    gaze(likely_tag_pose, BODY_FRAME_NAME, gripper_open=True)
+
+    depth_image_response, color_image_response = get_camera_rgbd(in_frame="image")
+    image_color, response_color = color_image_response
+    image_gray = cv2.cvtColor(image_color, cv2.COLOR_RGB2GRAY)
+    image_tuples_color = [(image_gray, response_color)]
+    image_tuples_depth = [depth_image_response]
+
+    fiducial_tform_body = detect_best_apriltag(
+        tag_id, image_tuples_color, image_tuples_depth, detector, vis_block=vis_block
+    )
+
+    # build the point cloud of the surrounding environment
+    # pcd_body = build_surrounding_point_cloud()
+    # transform it into frame relative to fiducial (ground truth is centered on fiducial)
+    # this is the "prediction" of the environment based on the localization w.r.t. the fiducial
+    # pcd_fiducial = pcd_body.transform(fiducial_tform_body)
+
+    # get the ground truth point cloud (pre-scanned)
+    # base_path = config.get_subpath("aligned_point_clouds")
+    # ending = config["pre_scanned_graphs"]["high_res"]
+    # scan_path = os.path.join(base_path, ending, "scene.ply")
+    # pcd_ground = o3d.io.read_point_cloud(scan_path)
+
+    # #test
+    # vis_block = True
+
+    # if vis_block:
+    #     show_two_geometries_colored(pcd_fiducial, pcd_ground)
+
+    # get offset between prediction and ground truth
+    # ground_tform_fiducial = icp(
+    #     pcd_ground, pcd_fiducial, threshold=0.10, max_iteration=100
+    # )
+    ground_tform_fiducial = np.eye(4)
+    ground_tform_body = ground_tform_fiducial @ fiducial_tform_body
+
+    # if vis_block:
+    #     pcd_new_ground = pcd_fiducial.transform(ground_tform_fiducial)
+    #     show_two_geometries_colored(pcd_new_ground, pcd_ground)
+
+    # compute transformation relative to odom to add to frame_transformer
+    body_tform_odom = frame_transformer.transform_matrix(
+        ODOM_FRAME_NAME, BODY_FRAME_NAME
+    )
+    ground_tform_odom = ground_tform_body @ body_tform_odom
+
+    frame_transformer.add_frame_tform_vision(frame_name, ground_tform_odom)
+
+    stow_arm(False)
+    set_gripper(False)
+    return frame_name
+
+
 def relocalize(
     config: Config,
     frame_name: str,

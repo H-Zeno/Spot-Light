@@ -7,6 +7,7 @@ import cv2
 import matplotlib.pyplot as plt
 from source.utils.object_detetion import BBox
 
+
 def _filter_detections_YOLOWorld(detections):
 
     # squaredness filter
@@ -61,7 +62,7 @@ def filter_detections_ultralytics(detections, filter_squaredness=True, filter_ar
     return bbox
 
 
-def predict_light_switches(image: np.ndarray, model_type: str = "yolov8", vis_block: bool = False):
+def predict_light_switches(image: np.ndarray, model_type: str = "yolov8", weights_path: str = '', vis_block: bool = False):
 
     if model_type == "yolo_world":
         model = YOLOWorld("yolov8s-world.pt")
@@ -71,8 +72,8 @@ def predict_light_switches(image: np.ndarray, model_type: str = "yolov8", vis_bl
         results_predict[0].show()
 
     elif model_type == "yolov8":
-        model = YOLO('../../weights/train27/weights/best.pt')
-        results_predict = model.predict(source=image, imgsz=1280, conf=0.15, iou=0.4, max_det=9, agnostic_nms=True,
+        model = YOLO(weights_path) # conf 0.15
+        results_predict = model.predict(source=image, imgsz=1280, conf=0.5, iou=0.4, max_det=9, agnostic_nms=True,
                                         save=False)
 
         boxes = filter_detections_ultralytics(detections=results_predict)
