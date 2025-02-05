@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Configuration
-LSARP_DIR="${LSARP%/}"  # Remove trailing slash if present
+SPOTLIGHT_DIR="${SPOTLIGHT%/}"  # Remove trailing slash if present
 CONFIG_FILE="configs/config.yaml"
 
 # Function to check if directory exists
@@ -24,19 +24,19 @@ read_config() {
 }
 
 # Setup required directories
-check_dir "${LSARP_DIR}/data/autowalk"
-check_dir "${LSARP_DIR}/data/point_clouds"
-check_dir "${LSARP_DIR}/data/prescans"
-check_dir "${LSARP_DIR}/data/aligned_point_clouds"
+check_dir "${SPOTLIGHT_DIR}/data/autowalk"
+check_dir "${SPOTLIGHT_DIR}/data/point_clouds"
+check_dir "${SPOTLIGHT_DIR}/data/prescans"
+check_dir "${SPOTLIGHT_DIR}/data/aligned_point_clouds"
 
 # Read scan names from config
 read_config
 
 # Process low-res point cloud
 echo "Processing low resolution point cloud..."
-if [ -f "${LSARP_DIR}/data/autowalk/${LOW_RES_NAME}.walk/point_cloud.ply" ]; then
-    cp "${LSARP_DIR}/data/autowalk/${LOW_RES_NAME}.walk/point_cloud.ply" \
-       "${LSARP_DIR}/data/point_clouds/${LOW_RES_NAME}.ply"
+if [ -f "${SPOTLIGHT_DIR}/data/autowalk/${LOW_RES_NAME}.walk/point_cloud.ply" ]; then
+    cp "${SPOTLIGHT_DIR}/data/autowalk/${LOW_RES_NAME}.walk/point_cloud.ply" \
+       "${SPOTLIGHT_DIR}/data/point_clouds/${LOW_RES_NAME}.ply"
 else
     echo "Error: Low resolution point cloud not found"
     exit 1
@@ -44,9 +44,9 @@ fi
 
 # Process high-res point cloud
 echo "Processing high resolution point cloud..."
-check_dir "${LSARP_DIR}/data/prescans/${HIGH_RES_NAME}"
-cp "${LSARP_DIR}/data/prescans/${HIGH_RES_NAME}/${HIGH_RES_NAME}.ply" "${LSARP_DIR}/data/prescans/${HIGH_RES_NAME}/pcd.ply"
+check_dir "${SPOTLIGHT_DIR}/data/prescans/${HIGH_RES_NAME}"
+cp "${SPOTLIGHT_DIR}/data/prescans/${HIGH_RES_NAME}/${HIGH_RES_NAME}.ply" "${SPOTLIGHT_DIR}/data/prescans/${HIGH_RES_NAME}/pcd.ply"
 
 # Run alignment script
 echo "Running point cloud alignment..."
-python3 "${LSARP_DIR}/source/scripts/point_cloud_scripts/full_align.py"
+python3 "${SPOTLIGHT_DIR}/source/scripts/point_cloud_scripts/full_align.py"
