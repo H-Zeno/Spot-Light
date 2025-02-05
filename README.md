@@ -101,7 +101,7 @@ The script will:
 
 ---
 
-## Mask3D Setup and Semantic Instance Segmentation
+## Mask3D  Semantic Instance Segmentation
 
 ```bash
 # Make the script executable
