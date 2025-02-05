@@ -30,32 +30,30 @@ Heads up: this setup is a bit involved, since we will explain not only some exam
 Set the environment variable `SPOTLIGHT` to the path of the Spot-Light folder. Just to make sure we're all on the same page ... I mean path ;) Example:
 
 ```bash
-export SPOTLIGHT=/home/cvg-robotics/tim_ws/Spot-Light/
+export SPOTLIGHT=<spotlights-repository-on-your-computer>
 ```
 
 ### Virtual Environment
 
 1. Create a virtual environment:
+   
    ```bash
    python3 -m venv venv
    source venv/bin/activate
    ```
-2. Install required packages:
+3. Install required packages:
+   
    ```bash
    pip install -r requirements.txt
    ```
-
----
-
 ---
 
 ## Point Cloud Capturing and Alignment
 
-We need two point clouds for the scene understanding:
+We need two point clouds for the scene understanding: 
 
-### Prerequisites
+First, update the configuration file (`configs/config.yaml`) with the name of the specific low and high resolution scan that you are taking this day (e.g. 02-02-25-room1):
 
-1. Update the configuration file (`configs/config.yaml`):
    ```yaml
    pre_scanned_graphs:
      low_res: '<low_res_name>' # Name for the low-resolution scan (acquired during autowalk with spot)
@@ -103,7 +101,7 @@ The script will:
 
 ---
 
-## Scene Graph Setup
+## Mask3D Setup and Semantic Instance Segmentation
 
 ```bash
 # Make the script executable
