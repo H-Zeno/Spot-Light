@@ -12,16 +12,16 @@ import matplotlib.pyplot as plt
 from typing import List
 
 from bosdyn.client import Sdk
-from robot_utils.advanced_movement import move_body_distanced, push
-from robot_utils.base import ControlFunction, take_control_with_function
-from robot_utils.basic_movements import carry_arm, stow_arm, move_body, gaze, carry, move_arm_distanced, move_arm
-from robot_utils.advanced_movement import push_light_switch, turn_light_switch
-from robot_utils.frame_transformer import FrameTransformerSingleton
-from robot_utils.video import localize_from_images, get_camera_rgbd, set_gripper_camera_params, set_gripper, relocalize, localize_from_images_only_fiducial
+from source.robot_utils.advanced_movement import move_body_distanced, push
+from source.robot_utils.base import ControlFunction, take_control_with_function
+from source.robot_utils.basic_movements import carry_arm, stow_arm, move_body, gaze, carry, move_arm_distanced, move_arm
+from source.robot_utils.advanced_movement import push_light_switch, turn_light_switch
+from source.robot_utils.frame_transformer import FrameTransformerSingleton
+from source.robot_utils.video import localize_from_images, get_camera_rgbd, set_gripper_camera_params, set_gripper, relocalize, localize_from_images_only_fiducial
 from scipy.spatial.transform import Rotation
-from utils.coordinates import Pose3D, Pose2D, pose_distanced, average_pose3Ds
-from utils.recursive_config import Config
-from utils.singletons import (
+from source.utils.coordinates import Pose3D, Pose2D, pose_distanced, average_pose3Ds
+from source.utils.recursive_config import Config
+from source.utils.singletons import (
     GraphNavClientSingleton,
     ImageClientSingleton,
     RobotCommandClientSingleton,
@@ -29,11 +29,11 @@ from utils.singletons import (
     RobotStateClientSingleton,
     WorldObjectClientSingleton,
 )
-from utils.light_switch_detection import predict_light_switches
-from utils.affordance_detection_light_switch import compute_affordance_VLM_GPT4, compute_advanced_affordance_VLM_GPT4
-from bosdyn.api.image_pb2 import ImageResponse
-from utils.object_detetion import BBox, Detection, Match
-from robot_utils.video import frame_coordinate_from_depth_image, select_points_from_bounding_box
+from source.utils.light_switch_detection import predict_light_switches
+from source.utils.affordance_detection_light_switch import compute_affordance_VLM_GPT4, compute_advanced_affordance_VLM_GPT4
+from source.bosdyn.api.image_pb2 import ImageResponse
+from source.utils.object_detetion import BBox, Detection, Match
+from source.robot_utils.video import frame_coordinate_from_depth_image, select_points_from_bounding_box
 
 frame_transformer = FrameTransformerSingleton()
 graph_nav_client = GraphNavClientSingleton()
@@ -43,11 +43,11 @@ robot = RobotSingleton()
 robot_state_client = RobotStateClientSingleton()
 world_object_client = WorldObjectClientSingleton()
 
-from utils.pose_utils import calculate_light_switch_poses
-from utils.bounding_box_refinement import refine_bounding_box
+from source.utils.pose_utils import calculate_light_switch_poses
+from source.utils.bounding_box_refinement import refine_bounding_box
 from random import uniform
 
-from utils.pose_utils import (
+from source.utils.pose_utils import (
     determine_handle_center,
     find_plane_normal_pose,
     calculate_handle_poses,
@@ -366,6 +366,12 @@ class _Push_Light_Switch(ControlFunction):
                         if affordance_dict["interaction inference from symbols"] == "no symbols present" or affordance_dict["interaction inference from symbols"] == "center push":
                             offsets.append([0.0, 0.0, GRIPPER_HEIGHT/2])
                             offsets.append([0.0, 0.0, -GRIPPER_HEIGHT/2])
+                        elif affordance_dict["interaction inference from symbols"] == "left/right push":
+                            # todo test on robot
+                            offsets.append([0.0, GRIPPER_WIDTH/2, GRIPPER_HEIGHT/2])
+                            offsets.append([0.0, GRIPPER_WIDTH/2, -GRIPPER_HEIGHT/2])
+                            offsets.append([0.0, -GRIPPER_WIDTH/2, GRIPPER_HEIGHT/2])
+                            offsets.append([0.0, -GRIPPER_WIDTH/2, -GRIPPER_HEIGHT/2])
                         else:
                             logging.warning(f"AFFORDANCE ERROR: {affordance_dict} NOT EXPECTED")
                             continue
